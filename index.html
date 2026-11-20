@@ -48,8 +48,14 @@ input{font:inherit;color:inherit}
 /* ---------- sidebar ---------- */
 .side{display:flex;flex-direction:column;gap:16px;min-height:0}
 .clockbox{padding:12px 14px}
-.clock{font-size:55px;line-height:1;letter-spacing:2px;font-weight:700;color:var(--hl);text-shadow:4px 4px 0 var(--clockshadow)}
-.date{font-size:16px;margin-top:10px;color:var(--fg)}
+.date{font-size:30px;font-weight:700;line-height:1.2;color:var(--hl);text-shadow:3px 3px 0 var(--clockshadow);text-align:center}
+.date small{display:block;font-size:22px;color:var(--fg);text-shadow:none;margin-top:2px}
+.clock{display:block;width:140px;height:140px;margin:10px auto 0}
+.clock .face{fill:var(--card);stroke:var(--line);stroke-width:4}
+.clock text{fill:var(--fg);font-size:12px;font-weight:700;text-anchor:middle;dominant-baseline:central}
+.clock .hh{stroke:var(--fg);stroke-width:6}
+.clock .mh{stroke:var(--hl);stroke-width:4}
+.clock .dot{fill:var(--red)}
 .wx{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .wxc{padding:10px;display:flex;flex-direction:column;gap:3px;min-height:168px}
 .wxc .lb{font-weight:700;font-size:13px;display:flex;justify-content:space-between;color:var(--hl)}
@@ -216,8 +222,8 @@ body.pm .dayh .tag{color:#FCFCFC}
 /* 가로 패드처럼 세로가 짧은 화면: 시계·날씨를 줄여 일정 칸을 넓힘 */
 @media (orientation:landscape) and (max-height:900px){
   .clockbox{padding:8px 12px}
-  .clock{font-size:42px}
-  .date{margin-top:6px}
+  .clock{width:110px;height:110px;margin-top:6px}
+  .date{font-size:26px}
   .wxc{min-height:0;padding:8px}
   .wxc .ic{font-size:28px}
   .wxc .tp{font-size:19px}
@@ -376,8 +382,7 @@ function render(){
 }
 function renderSide(tk){
   var now=new Date();
-  var h='<aside class="side"><div class="clockbox"><div class="clock" id="clock">'+pad(now.getHours())+":"+pad(now.getMinutes())+'</div>'+
-    '<div class="date">'+(now.getMonth()+1)+"월 "+now.getDate()+"일 "+DAYS[now.getDay()]+'요일</div></div>';
+  var h='<aside class="side"><div class="clockbox"><div class="date">'+(now.getMonth()+1)+"월 "+now.getDate()+"일"+'<small>'+DAYS[now.getDay()]+'요일</small></div>'+clockSvg(now)+'</div>';
   h+='<div class="wx">'+wxCard("오늘",tk)+wxCard("내일",addDays(tk,1))+'</div>';
   var unread=memos.filter(function(m){return m.at>memoSeen}).length;
   h+='<section class="sched"><div class="sh tabs"><button class="stab'+(ui.side==="sched"?" on":"")+'" data-a="sideTab" data-v="sched">일정</button>'+
@@ -795,10 +800,17 @@ function loadWeather(){
 }
 
 /* ---------- clock & rollover ---------- */
+function handDeg(now){var m=now.getMinutes();return {h:(now.getHours()%12)*30+m/2,m:m*6}}
+function clockSvg(now){
+  var d=handDeg(now),n="";
+  for(var i=1;i<=12;i++){var a=i*Math.PI/6;n+='<text x="'+(37*Math.sin(a)).toFixed(1)+'" y="'+(-37*Math.cos(a)).toFixed(1)+'">'+i+'</text>'}
+  return '<svg class="clock" id="clock" viewBox="-50 -50 100 100" role="img" aria-label="'+now.getHours()+'시 '+now.getMinutes()+'분"><circle class="face" r="46"/>'+n+
+    '<line class="hh" y2="-20" transform="rotate('+d.h+')"/><line class="mh" y2="-30" transform="rotate('+d.m+')"/><circle class="dot" r="4"/></svg>';
+}
 var lastSlot=autoSlot();
 setInterval(function(){
   var now=new Date(),c=document.getElementById("clock");
-  if(c)c.textContent=pad(now.getHours())+":"+pad(now.getMinutes());
+  if(c)c.outerHTML=clockSvg(now);
   var s=autoSlot();
   if(db&&subKey&&subKey!==todayKey()){subscribeDaily();ui.slot=null;render()}
   else if(s!==lastSlot&&!ui.edit){lastSlot=s;ui.slot=null;render()}
