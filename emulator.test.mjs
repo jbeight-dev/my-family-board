@@ -33,7 +33,7 @@ await t("4. 중복 체크는 XP 그대로", async () => {
   assert.equal(await toggleTask(F, pc, D, "kid1", "kid1am1", true), null);
   assert.equal((await pet(pc, "kid1")).totalXp, 10);
 });
-await t("1. 첫째·둘째 분리", async () => {
+await t("1. 도은·도영 분리", async () => {
   await toggleTask(F, pc, D, "kid2", "kid2am1", true);
   assert.equal((await pet(pc, "kid1")).totalXp, 10);
   assert.equal((await pet(pc, "kid2")).totalXp, 10);

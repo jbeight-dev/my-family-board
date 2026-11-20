@@ -611,7 +611,7 @@ function renderModal(){
   var custom=dchips.every(function(c){return c[0]!==e.d});
   var h='<div class="modalBg" data-a="evClose"><div class="modal" data-stop>'+
     '<h3>▶ 새 일정</h3>'+
-    '<div><div class="fl">무엇을</div><input id="evT" class="inp" placeholder="예: 첫째 피아노 학원, 할머니댁 방문" maxlength="30" value="'+esc(e.t)+'"></div>'+
+    '<div><div class="fl">무엇을</div><input id="evT" class="inp" placeholder="예: 도은 피아노 학원, 할머니댁 방문" maxlength="30" value="'+esc(e.t)+'"></div>'+
     '<div><div class="fl">언제</div><div class="chips">'+dchips.map(function(c){return '<button class="chipb'+(e.d===c[0]?" on":"")+'" data-a="evD" data-v="'+c[0]+'">'+c[1]+'</button>'}).join("")+
       '<input type="date" id="evDate" class="inp'+(custom?" on":"")+'" value="'+esc(e.d)+'"></div></div>'+
     '<div><div class="fl">몇 시</div><div class="chips"><button class="chipb'+(e.time?"":" on")+'" data-a="evAll">종일</button><input type="time" id="evTime" class="inp" value="'+esc(e.time)+'"></div></div>'+
@@ -637,7 +637,7 @@ modal.addEventListener("click",function(e){
   if(ui.pet){
     if(a==="petSave"){
       var pn=(ui.pet.name||"").trim();if(!pn){toast("펫 이름을 써 주세요");return}
-      var cid=ui.pet.m,now=Date.now(),body={childId:cid,petId:"dragon",petName:pn,updatedAt:now};
+      var cid=ui.pet.m,now=Date.now(),body={childId:cid,petId:kindOf(cid).art,petName:pn,updatedAt:now};
       if(!pets[cid])body.createdAt=now;
       pets[cid]=Object.assign({},petOf(cid),body);ui.pet=null;renderModal();render();
       if(db)db.doc("pets/"+cid).merge(body).catch(writeFail);
@@ -710,7 +710,16 @@ function writeFail(err){
 }
 
 /* ---------- pixel pet ---------- */
-var PET_PAL={K:"#000",G:"#00A800",L:"#80D010",Y:"#F8B800",W:"#FCFCFC",R:"#F83800"};
+var PET_PAL={K:"#000",G:"#00A800",L:"#80D010",Y:"#F8B800",W:"#FCFCFC",R:"#F83800",P:"#F8B8F8",O:"#FC9838"};
+// 아이별 펫 종류 (그림·기본 이름만 다르고 XP·단계 규칙은 같음)
+var PET_KIND={kid1:{art:"rabbit",baby:"아기 토끼",name:"토토"}},PET_DEF={art:"dragon",baby:"아기 드래곤",name:"용용이"};
+function kindOf(cid){return PET_KIND[cid]||PET_DEF}
+function stName(cid,st){return st===1?kindOf(cid).baby:STAGES[st].name}
+var PET_RABBIT=[
+ ["................","......KKKK......",".....KWWWWK.....","....KWWPPWWK....","....KWPPPWWK....","...KWWWWWWWWK...","...KWWWWWPPWK...","...KPPWWWPPWK...","...KPPWWWWWWK...","...KWWWWWWWWK...","...KWWWPPWWWK...","....KWWPPWWK....","....KWWWWWWK....",".....KKKKKK.....","................","................"],
+ ["................","....KK....KK....","...KWWK..KWWK...","...KWPK..KPWK...","...KWPK..KPWK...","....KWKKKKWK....","...KWWWWWWWWK...","..KWWKWWWWKWWK..","..KWWKWWWWKWWK..","..KWPWWKKWWPWK..","..KWWWWWWWWWWK..","...KWWWWWWWWK...","...KWWWWWWWWK...","....KWWKKWWK....","....KKK..KKK....","................"],
+ ["...KK......KK...","..KWWK....KWWK..","..KWPK....KPWK..","..KWPK....KPWK..","..KWPK....KPWK..","...KWKKKKKKWK...","..KWWWWWWWWWWK..",".KWWKWWWWWWKWWK.",".KWWKWWWWWWKWWK.",".KWPWWWKKWWWPWK.",".KWWWWWWWWWWWWK.","..KKWWWWWWWWKK..",".KWKWWWWWWWWKWK.","..KWWWWWWWWWWK..","..KWWWKKKKWWWK..","...KKK....KKK..."],
+ ["...KK......KK...","..KWWK.....KWWK.","..KWPK.Y.Y.KPWK.","..KWPKYYYYYKPWK.","..KWPKKKKKKKPWK.","...KWWWWWWWWWK..","..KWWWWWWWWWWWK.",".KWWKWWWWWWKWWK.",".KWWKWWWWWWKWWKG",".KWPWWWKKWWWPKGG",".KWWWWWWWWWWKOKG","..KKWWWWWWWKOOK.",".KWKWWWWWWWKOKK.","..KWWWWWWWWWKK..","..KWWWKKKKWWWK..","...KKK....KKK..."]];
 var PET_ART=[
  ["................","......KKKK......",".....KWWWWK.....","....KWWGGWWK....","....KWGGGWWK....","...KWWWWWWWWK...","...KWWWWWGGWK...","...KGGWWWGGWK...",
   "...KGGWWWWWWK...","...KWWWWWWWWK...","...KWWWGGWWWK...","....KWWGGWWK....","....KWWWWWWK....",".....KKKKKK.....","................","................"],
@@ -720,16 +729,16 @@ var PET_ART=[
   "..KGGGRRRRGGGK..","K..KGGGGGGGGK..K","KLKGKYYYYYYKGKLK","KLLKGYYYYYYGKLLK",".KLKGYYYYYYGKLK.","..KKGYYYYYYGKK..","...KGGK..KGGKGK.","...KKKK..KKKKKK."],
  ["K..............K","KK..K......K..KK","KLK.KYK..KYK.KLK","KLLKKGGKKGGKKLLK","KLLKGGGGGGGGKLLK",".KLKGWKGGWKGKLK.",".KLKGKKGGKKGKLK.","..KKGGGGGGGGKK..",
   "..KGGRRRRRRGGK..",".KGGGKKKKKKGGGK.","KGGKYYYYYYYYKGGK","KGKYYYYYYYYYYKGK",".KKYYYYYYYYYYKK.","..KGYYYYYYYYGK..","..KGGK....KGGKGK","..KKKK....KKKKKK"]];
-function petSvg(stage){
-  var g=PET_ART[stage]||PET_ART[0],r="";
+function petSvg(stage,cid){
+  var art=kindOf(cid).art==="rabbit"?PET_RABBIT:PET_ART,g=art[stage]||art[0],r="";
   g.forEach(function(row,y){for(var x=0;x<16;x++){var c=PET_PAL[row.charAt(x)];if(c)r+='<rect x="'+x+'" y="'+y+'" width="1" height="1" fill="'+c+'"/>'}});
   return '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">'+r+'</svg>';
 }
 function petOf(cid){var p=pets[cid]||{};return {petName:p.petName||"",totalXp:+p.totalXp||0,highestUnlockedStage:+p.highestUnlockedStage||0,createdAt:p.createdAt}}
 function petBtn(m){
   var p=petOf(m.id),st=shownStage(p);
-  return '<button class="pet'+(ui.evolve===m.id?" evolve":"")+'" data-a="petOpen" data-m="'+esc(m.id)+'" aria-label="'+esc(p.petName||"용용이")+' '+STAGES[st].name+' 보기">'+
-    '<span class="psp">'+petSvg(st)+'</span><span class="pxp"><i style="width:'+stagePct(p)+'%"></i></span></button>';
+  return '<button class="pet'+(ui.evolve===m.id?" evolve":"")+'" data-a="petOpen" data-m="'+esc(m.id)+'" aria-label="'+esc(p.petName||kindOf(m.id).name)+' '+stName(m.id,st)+' 보기">'+
+    '<span class="psp">'+petSvg(st,m.id)+'</span><span class="pxp"><i style="width:'+stagePct(p)+'%"></i></span></button>';
 }
 function petCheer(cid){
   var b=root.querySelector('.pet[data-m="'+cid+'"]');if(!b)return;
@@ -759,18 +768,18 @@ function petEvolve(cid,st){
   ui.evolve=cid;render();
   var b=root.querySelector('.pet[data-m="'+cid+'"]');
   if(b){var r=b.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height/2,true)}
-  toast("🎉 "+(petOf(cid).petName||"용용이")+"이(가) ‘"+STAGES[st].name+"’ 단계로 성장했어요!");
+  toast("🎉 "+(petOf(cid).petName||kindOf(cid).name)+"이(가) ‘"+stName(cid,st)+"’ 단계로 성장했어요!");
   setTimeout(function(){if(ui.evolve===cid){ui.evolve=null;render()}},1600);
 }
 function renderPetModal(){
   var cid=ui.pet.m,m=memberById(cid)||{},p=petOf(cid),st=shownStage(p),nx=toNext(p);
   modal.innerHTML='<div class="modalBg" data-a="evClose"><div class="modal petm">'+
     '<h3>▶ '+esc(m.name||"")+'의 펫</h3>'+
-    '<div class="pbig">'+petSvg(st)+'</div>'+
-    '<div class="pst"><b>'+STAGES[st].name+'</b> · 누적 '+p.totalXp+' XP</div>'+
+    '<div class="pbig">'+petSvg(st,cid)+'</div>'+
+    '<div class="pst"><b>'+stName(cid,st)+'</b> · 누적 '+p.totalXp+' XP</div>'+
     '<div class="pxp big"><i style="width:'+stagePct(p)+'%"></i></div>'+
     '<div class="pnext">'+(nx==null?'★ 최종 단계에 도달했어요! 경험치는 계속 쌓여요.':
-      '<span class="pmini">'+petSvg(st+1)+'</span><span>다음 단계 <b>'+STAGES[st+1].name+'</b>까지<br><b>'+nx+' XP</b> 남았어요 (할 일 '+Math.ceil(nx/XP_PER_TASK)+'개)</span>')+'</div>'+
+      '<span class="pmini">'+petSvg(st+1,cid)+'</span><span>다음 단계 <b>'+stName(cid,st+1)+'</b>까지<br><b>'+nx+' XP</b> 남았어요 (할 일 '+Math.ceil(nx/XP_PER_TASK)+'개)</span>')+'</div>'+
     '<div><div class="fl">펫 이름</div><input id="petN" class="inp" maxlength="10" value="'+esc(ui.pet.name)+'"></div>'+
     '<div class="row"><button class="btn" data-a="evClose">닫기</button><button class="btn pri" data-a="petSave">이름 저장</button></div></div></div>';
 }
@@ -852,7 +861,7 @@ root.addEventListener("click",function(e){
     if(kid)xpSync(tk,t);else flushChecks(tk);
     return;
   }
-  if(a==="petOpen"){var pm=petOf(el.dataset.m);ui.pet={m:el.dataset.m,name:pm.petName||"용용이"};renderModal();return}
+  if(a==="petOpen"){var pm=petOf(el.dataset.m);ui.pet={m:el.dataset.m,name:pm.petName||kindOf(el.dataset.m).name};renderModal();return}
   if(a==="del"){
     if(el.dataset.sure!=="1"){el.dataset.sure="1";el.textContent="삭제?";setTimeout(function(){if(el.isConnected){el.dataset.sure="";el.textContent="✕"}},2500);return}
     var tt=cfg.tasks.find(function(x){return x.id===id});
