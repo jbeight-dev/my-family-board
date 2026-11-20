@@ -10,6 +10,7 @@
 | `index.html` | 대시보드 본체 |
 | `firebase-config.js` | Firebase 설정값과 날씨 지역 (직접 채워야 해요) |
 | `firestore.rules` | 가족 계정만 읽고 쓰게 하는 보안 규칙 |
+| `pet.js` | 픽셀 펫 XP·성장 계산과 체크·XP 저장 트랜잭션 |
 | `fonts/` | 갈무리 도트 글꼴 (OFL 라이선스, `fonts/LICENSE.txt`) |
 
 ---
@@ -64,6 +65,13 @@ Firebase 콘솔 **Authentication → 설정 → 승인된 도메인 → 도메�
 - **"이 계정은 허용되지 않았어요"가 나와요:** `firestore.rules`의 이메일 목록에 그 계정을 넣고 다시 게시하세요.
 - **로그인 창이 바로 닫혀요:** 5단계의 승인된 도메인을 확인하세요.
 - **파일을 고쳤는데 그대로예요:** GitHub Pages 반영에 1~2분 걸려요. 브라우저를 새로고침하세요.
+
+## 테스트
+
+```
+npm install
+npm test   # 순수 로직 + Firestore 에뮬레이터(트랜잭션·보안 규칙). JDK 21 이상 필요
+```
 
 ## 비용
 

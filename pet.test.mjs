@@ -1,6 +1,6 @@
 // 실행: node pet.test.mjs
 import assert from "node:assert/strict";
-import { stageOf, shownStage, toNext, stagePct, applyXp, xpKey } from "./pet.js";
+import { stageOf, shownStage, toNext, stagePct, applyXp } from "./pet.js";
 
 assert.equal(stageOf(0), 0); assert.equal(stageOf(49), 0);
 assert.equal(stageOf(50), 1); assert.equal(stageOf(199), 1);
@@ -17,5 +17,4 @@ assert.equal(toNext(p), 160);               // 200 - 40
 assert.equal(applyXp({ totalXp: 0 }, false).totalXp, 0);   // 음수 금지
 assert.equal(toNext({ totalXp: 700, highestUnlockedStage: 3 }), null);
 assert.equal(stagePct({ totalXp: 125, highestUnlockedStage: 1 }), 50);
-assert.equal(xpKey("2026-11-21", "kid1", "pm", "kid1pm1"), "2026-11-21_kid1_pm_kid1pm1");
 console.log("pet.test OK");

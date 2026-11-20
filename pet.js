@@ -2,7 +2,7 @@
 export const XP_PER_TASK = 10;
 export const STAGES = [
   { min: 0,   name: "알" },
-  { min: 50,  name: "아기 펫" },
+  { min: 50,  name: "아기 드래곤" },
   { min: 200, name: "성장 중" },
   { min: 500, name: "완전체" }
 ];
@@ -38,7 +38,20 @@ export function applyXp(pet, on, amount = XP_PER_TASK) {
   return { totalXp, highestUnlockedStage: Math.max(pet.highestUnlockedStage || 0, stageOf(totalXp)) };
 }
 
-// 지급 기록 문서 id: 날짜·아이·아침/저녁·작업이 같으면 같은 id → 중복 지급 불가
-export function xpKey(date, childId, slot, taskId) {
-  return [date, childId, slot, taskId].join("_");
+// 루틴 체크/해제 1회를 한 트랜잭션으로 저장: checks/{date}의 체크 상태 + 지급 기록(xpAwarded) + pets/{childId}.
+// 지급 기록이 이미 원하는 상태면 XP는 건드리지 않음 → 중복 클릭·여러 기기 동시 변경에도 XP는 정확히 한 번.
+// F = { doc, runTransaction } (브라우저는 CDN 모듈, 테스트는 npm 모듈을 넘김)
+export function toggleTask(F, fs, date, childId, taskId, on) {
+  const cr = F.doc(fs, "checks/" + date), pr = F.doc(fs, "pets/" + childId);
+  return F.runTransaction(fs, async (tx) => {
+    const [c, p] = await Promise.all([tx.get(cr), tx.get(pr)]);
+    const awarded = ((c.exists() && c.data().xpAwarded) || {})[taskId] === childId;
+    if (awarded === on) { tx.set(cr, { d: date, [taskId]: on }, { merge: true }); return null; }
+    const now = Date.now();
+    const before = p.exists() ? p.data() : { childId, petId: "dragon", petName: "", totalXp: 0, highestUnlockedStage: 0, createdAt: now };
+    const after = { ...before, ...applyXp(before, on), xpSeq: (before.xpSeq || 0) + 1, lastXp: { d: date, t: taskId }, updatedAt: now };
+    tx.set(cr, { d: date, [taskId]: on, xpAwarded: { [taskId]: on ? childId : false }, xpLast: { t: taskId, c: childId } }, { merge: true });
+    tx.set(pr, after);
+    return { before, after };
+  });
 }

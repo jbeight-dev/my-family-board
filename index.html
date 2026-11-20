@@ -300,7 +300,7 @@ textarea.inp{resize:none;height:110px;line-height:1.5}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { getFirestore, doc, collection, query, where, onSnapshot, setDoc, updateDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
-import { XP_PER_TASK, STAGES, stageOf, shownStage, toNext, stagePct, applyXp, xpKey } from "./pet.js";
+import { XP_PER_TASK, STAGES, shownStage, toNext, stagePct, toggleTask } from "./pet.js";
 import { firebaseConfig, WEATHER } from "./firebase-config.js";
 
 /* Firestore를 대시보드가 쓰는 간단한 db 형태로 감싸는 어댑터 */
@@ -323,21 +323,9 @@ function mkDb(fs){
       where:function(f,op,v){return cref(path,(cons||[]).concat([where(f,op,v)]))},
       onSnapshot:function(n,er){var q=cons&&cons.length?query(c,...cons):c;return onSnapshot(q,function(s){n({docs:s.docs.map(wrapDoc),size:s.size,empty:s.empty})},function(e){if(er)er(mapErr(e))})}};
   }
-  // 펫 XP: 지급 기록(xp/{key})이 있는지 보고 체크=지급, 해제=취소. 트랜잭션이라 동시·중복 클릭에도 한 번만 반영
-  function xpTx(key,cid,on,meta){
-    var lr=doc(fs,"xp/"+key),pr=doc(fs,"pets/"+cid);
-    return runTransaction(fs,function(tx){
-      return Promise.all([tx.get(lr),tx.get(pr)]).then(function(r){
-        if(r[0].exists()===on)return null;
-        var now=Date.now(),old=r[1].exists()?r[1].data():{childId:cid,petId:"dragon",petName:"",totalXp:0,highestUnlockedStage:0,createdAt:now};
-        var nw=Object.assign({},old,applyXp(old,on),{updatedAt:now});
-        if(on)tx.set(lr,Object.assign({childId:cid,xp:XP_PER_TASK,at:now},meta));else tx.delete(lr);
-        tx.set(pr,nw);
-        return {before:old,after:nw};
-      });
-    }).catch(function(e){throw mapErr(e)});
-  }
-  return {doc:dref,collection:function(p){return cref(p)},xpTx:xpTx};
+  // 아이 루틴 체크: 체크 상태·XP 지급 기록·펫을 한 트랜잭션으로 (pet.js)
+  function toggle(k,cid,id,on){return toggleTask({doc:doc,runTransaction:runTransaction},fs,k,cid,id,on).catch(function(e){throw mapErr(e)})}
+  return {doc:dref,collection:function(p){return cref(p)},toggle:toggle};
 }
 (function(){
 "use strict";
@@ -354,7 +342,8 @@ var events=[];             // [{id,d,time,t,who}]
 var weather=null;
 var conn="loading";        // loading | ok | slow | none
 var memos=[];
-var pets={};               // childId -> {petName,totalXp,highestUnlockedStage,...}
+var pets={};
+var xpPend={};            // "date|taskId" -> bool  (아이 루틴: 트랜잭션 저장 전 화면 상태)               // childId -> {petName,totalXp,highestUnlockedStage,...}
 var THEME=(function(){try{return localStorage.getItem("famdash_theme")||"light"}catch(e){return "light"}})();
 var memoSeen=(function(){try{return +localStorage.getItem("famdash_memoSeen")||0}catch(e){return 0}})();
 var ui={pet:null,evolve:null,side:"sched",daySel:null,memo:null,memoSel:null,slot:null,edit:false,open:false,adding:null,addEmoji:"✅",addText:"",naming:null,picking:null,evSel:null,ev:null};
@@ -370,7 +359,7 @@ function autoSlot(){return new Date().getHours()<14?"am":"pm"}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function soft(hex){var n=parseInt(String(hex).slice(1),16)||0;var r=n>>16,g=(n>>8)&255,b=n&255;function m(x){return Math.round(x+(255-x)*.85)}return "rgb("+m(r)+","+m(g)+","+m(b)+")"}
 function uid(p){return (p||"t")+Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
-function isDone(k,id){if(pend[k]&&id in pend[k])return !!pend[k][id];return !!(checks[k]&&checks[k][id])}
+function isDone(k,id){var x=xpPend[k+"|"+id];if(x!=null)return x;if(pend[k]&&id in pend[k])return !!pend[k][id];return !!(checks[k]&&checks[k][id])}
 function members(){return cfg&&Array.isArray(cfg.members)?cfg.members:[]}
 function tasks(){return cfg&&Array.isArray(cfg.tasks)?cfg.tasks:[]}
 function tasksOf(m,s){return tasks().filter(function(t){return t.m===m&&t.s===s})}
@@ -672,18 +661,13 @@ function flushChecks(k){
   var batch=pend[k];var keys=Object.keys(batch);if(!keys.length){delete pend[k];return}
   chkBusy[k]=true;syncMsg="저장 중…";renderSync();
   var ref=db.doc("checks/"+k);
-  var exists=!!checks[k];
   var body=Object.assign({},batch);
-  var p=exists?ref.update(body):ref.set(Object.assign({d:k},checks[k]||{},body));
-  p.then(function(){
+  ref.merge(Object.assign({d:k},body)).then(function(){
     checks[k]=Object.assign({},checks[k]||{},body);
     keys.forEach(function(id){if(pend[k]&&pend[k][id]===batch[id])delete pend[k][id]});
     if(pend[k]&&!Object.keys(pend[k]).length)delete pend[k];
     syncMsg="저장됨 ✓";renderSync();
-  },function(err){
-    if(err&&err.code==="invalid_argument"&&exists){checks[k]=null;delete checks[k]}   // doc vanished: retry with set
-    else writeFail(err);
-  }).then(function(){chkBusy[k]=false;if(pend[k])setTimeout(function(){flushChecks(k)},300)});
+  },writeFail).then(function(){chkBusy[k]=false;if(pend[k])setTimeout(function(){flushChecks(k)},300)});
 }
 var cfgBusy=false,cfgDirty=false;
 function saveCfg(){
@@ -729,13 +713,20 @@ function petCheer(cid){
 }
 var xpBusy={};
 function xpSync(k,t){
-  if(!db)return;
-  var key=xpKey(k,t.m,t.s,t.id);
-  if(xpBusy[key]){xpBusy[key]=2;return}          // 진행 중이면 끝난 뒤 최종 체크 상태로 한 번 더
-  xpBusy[key]=1;
-  db.xpTx(key,t.m,isDone(k,t.id),{d:k,slot:t.s,taskId:t.id}).then(function(r){
+  var pk=k+"|"+t.id;
+  if(!db||xpBusy[pk])return;                 // 진행 중이면 끝난 뒤 최종 상태로 다시 저장
+  var on=xpPend[pk];xpBusy[pk]=true;syncMsg="저장 중…";renderSync();
+  db.toggle(k,t.m,t.id,on).then(function(r){
+    var c={};c[t.id]=on;checks[k]=Object.assign({},checks[k]||{},c);
+    if(xpPend[pk]===on)delete xpPend[pk];
+    syncMsg="저장됨 ✓";render();
+    if(r&&on)petCheer(t.m);                  // 저장 성공 후에만 +10 XP 효과
     if(r&&shownStage(r.after)>shownStage(r.before))petEvolve(t.m,shownStage(r.after));
-  },writeFail).then(function(){var again=xpBusy[key]===2;delete xpBusy[key];if(again)xpSync(k,t)});
+  },function(err){
+    delete xpPend[pk];render();               // 저장 실패: 서버 상태로 되돌림
+    if(err&&err.code==="unavailable"){syncMsg="저장 실패";renderSync();toast("인터넷 연결을 확인해 주세요. 체크가 저장되지 않았어요")}
+    else writeFail(err);
+  }).then(function(){delete xpBusy[pk];if(pk in xpPend&&xpPend[pk]!==on)xpSync(k,t)});
 }
 function petEvolve(cid,st){
   ui.evolve=cid;render();
@@ -817,8 +808,9 @@ root.addEventListener("click",function(e){
   if(a==="evDel"){e.stopPropagation();events=events.filter(function(x){return x.id!==id});ui.evSel=null;render();if(db)db.collection("events").doc(id).delete().catch(writeFail);toast("일정을 삭제했어요");return}
   if(a==="toggle"){
     var tk=todayKey(),nv=!isDone(tk,id);
-    pend[tk]=pend[tk]||{};pend[tk][id]=nv;
     var r=el.getBoundingClientRect(),t=cfg.tasks.find(function(x){return x.id===id});
+    var kid=t&&!(memberById(t.m)||{}).adult;
+    if(kid)xpPend[tk+"|"+id]=nv;else{pend[tk]=pend[tk]||{};pend[tk][id]=nv}
     render();
     if(nv&&t){
       burst(r.right-30,r.top+r.height/2,false);
@@ -828,11 +820,7 @@ root.addEventListener("click",function(e){
         if(col){var c=col.getBoundingClientRect();setTimeout(function(){burst(c.left+c.width/2,c.top+c.height/3,true)},150)}
       }
     }
-    flushChecks(tk);
-    if(t&&!(memberById(t.m)||{}).adult){
-      if(nv)petCheer(t.m);
-      xpSync(tk,t);
-    }
+    if(kid)xpSync(tk,t);else flushChecks(tk);
     return;
   }
   if(a==="petOpen"){var pm=petOf(el.dataset.m);ui.pet={m:el.dataset.m,name:pm.petName||"용용이"};renderModal();return}
