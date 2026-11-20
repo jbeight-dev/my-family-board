@@ -224,9 +224,10 @@ body.pm .dayh .tag{color:#FCFCFC}
   .side{gap:12px}
 }
 /* side tabs + memos */
-.sh.tabs{gap:6px;padding:8px 8px 8px 8px}
-.stab{flex:1;padding:9px 6px;font-size:16px;font-weight:700;color:var(--faint);border:3px solid transparent;position:relative}
-.stab.on{color:var(--fg);border-color:var(--line);background:var(--card)}
+.sh.tabs{gap:4px;padding:10px 8px 0;align-items:flex-end}
+.stab{flex:1;padding:9px 6px;font-size:16px;font-weight:700;color:var(--faint);background:var(--card);border:var(--px) solid var(--cardline);border-bottom:0;position:relative}
+.stab.on{color:var(--fg);background:var(--panel);border-color:var(--line);padding-bottom:calc(9px + var(--px));margin-bottom:calc(-1 * var(--px));z-index:1}
+.sh.tabs .plus{align-self:center;margin:0 0 6px 4px}
 .stab.on::before{content:"▶";color:var(--hl);margin-right:3px}
 .badge{position:absolute;top:-8px;right:-6px;background:var(--red);color:#FCFCFC;font-size:12px;min-width:22px;height:22px;line-height:18px;border:2px solid var(--line);text-align:center;animation:blink 1s steps(1) infinite}
 .memos{flex:1;overflow-y:auto;padding:10px 10px 14px;display:flex;flex-direction:column;gap:12px;-webkit-overflow-scrolling:touch}
