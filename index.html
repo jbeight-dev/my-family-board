@@ -60,11 +60,9 @@ input{font:inherit;color:inherit}
 .wxc .tp .hi{color:var(--hi)}
 .wxc .sk{font-size:14px}
 .wxc .pp{font-size:12px;color:var(--muted)}
-.wxc .tip{margin-top:auto;font-size:12px;border-top:2px dashed var(--cardline);padding-top:6px;line-height:1.45;color:var(--fg)}
 .wxc.na{color:var(--muted);font-size:13px;justify-content:center;text-align:center}
-.wxmeta{font-size:12px;margin:-6px 4px 0;display:flex;justify-content:space-between;color:#BCBCBC;font-weight:700}
-body.light.am .wxmeta,body.light.am .sync{color:#000}
-body.light.pm .wxmeta,body.light.pm .sync{color:#FCFCFC}
+body.light.am .sync{color:#000}
+body.light.pm .sync{color:#FCFCFC}
 .sched{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .sh{display:flex;align-items:center;padding:10px 10px 10px 12px;border-bottom:var(--px) solid var(--line)}
 .sh h2{margin:0;font-weight:700;font-size:20px;flex:1}
@@ -95,7 +93,7 @@ body.pm .dayh .tag{color:#FCFCFC}
 .slot.on.am{background:var(--yel);color:var(--ink)}
 .slot.on.pm{background:var(--pur);color:#FCFCFC}
 .tools{margin-left:auto;display:flex;gap:10px;align-items:center}
-.tool{padding:10px 12px;font-size:14px;white-space:nowrap}
+.tool{padding:10px 12px;font-size:14px;white-space:nowrap;text-decoration:none}
 .tool.on{background:var(--yel)}
 .sync{font-size:12px;max-width:60px;line-height:1.3;color:#BCBCBC;font-weight:700}
 .board{flex:1;min-height:0;display:grid;gap:18px}
@@ -223,7 +221,6 @@ body.pm .dayh .tag{color:#FCFCFC}
   .wxc{min-height:0;padding:8px}
   .wxc .ic{font-size:28px}
   .wxc .tp{font-size:19px}
-  .wxc .tip{display:none}
   .side{gap:12px}
 }
 /* side tabs + memos */
@@ -258,7 +255,6 @@ textarea.inp{resize:none;height:110px;line-height:1.5}
   .app{grid-template-columns:1fr;grid-template-rows:auto auto 1fr;height:auto;min-height:100%}
   .side{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:stretch}
   .clockbox{align-self:stretch;display:flex;flex-direction:column;justify-content:center}
-  .wxmeta{grid-column:1/-1}
   .sched{grid-column:1/-1;min-height:380px}
   .main{min-height:640px}
   .drawer{width:94%}
@@ -356,7 +352,7 @@ function render(){
     '<div class="top"><div class="slots">'+
       '<button class="slot am'+(slot==="am"?" on":"")+'" data-a="slot" data-v="am">☀️ 아침</button>'+
       '<button class="slot pm'+(slot==="pm"?" on":"")+'" data-a="slot" data-v="pm">🌙 저녁</button></div>'+
-      '<div class="tools"><span class="sync" id="sync">'+esc(syncMsg)+'</span><button class="tool" data-a="theme">'+(THEME==="light"?"🌙 다크":"☀️ 일반")+'</button><button class="tool" data-a="calOpen">📅 달력</button>'+(ui.edit?'<button class="tool" data-a="logout">로그아웃</button>':'')+'<button class="tool'+(ui.edit?" on":"")+'" data-a="edit">'+(ui.edit?"완료":"✏️ 편집")+'</button></div></div>';
+      '<div class="tools"><span class="sync" id="sync">'+esc(syncMsg)+'</span><a class="tool" href="https://eng-word-memorizer.web.app/" target="_blank" rel="noopener">🔤 단어 외우기</a><a class="tool" href="https://www.gojls.com/login" target="_blank" rel="noopener">🏫 정상 어학원</a><button class="tool" data-a="theme">'+(THEME==="light"?"🌙 다크":"☀️ 일반")+'</button><button class="tool" data-a="calOpen">📅 달력</button>'+(ui.edit?'<button class="tool" data-a="logout">로그아웃</button>':'')+'<button class="tool'+(ui.edit?" on":"")+'" data-a="edit">'+(ui.edit?"완료":"✏️ 편집")+'</button></div></div>';
   var ks=kids(),as=adults();
   h+='<div class="board" style="grid-template-columns:repeat('+Math.max(ks.length,1)+',1fr)'+(as.length?' 96px':'')+'">';
   ks.forEach(function(m){h+=renderCol(m,slot,tk)});
@@ -382,10 +378,6 @@ function renderSide(tk){
   var h='<aside class="side"><div class="clockbox"><div class="clock" id="clock">'+pad(now.getHours())+":"+pad(now.getMinutes())+'</div>'+
     '<div class="date">'+(now.getMonth()+1)+"월 "+now.getDate()+"일 "+DAYS[now.getDay()]+'요일</div></div>';
   h+='<div class="wx">'+wxCard("오늘",tk)+wxCard("내일",addDays(tk,1))+'</div>';
-  if(weather&&weather.loc){
-    var up="";if(weather.updatedAt){var u=new Date(weather.updatedAt);if(!isNaN(u))up=(u.getMonth()+1)+"/"+u.getDate()+" "+pad(u.getHours())+":"+pad(u.getMinutes())+" 기준"}
-    h+='<div class="wxmeta"><span>📍 '+esc(weather.loc)+'</span><span>'+up+'</span></div>';
-  }
   var unread=memos.filter(function(m){return m.at>memoSeen}).length;
   h+='<section class="sched"><div class="sh tabs"><button class="stab'+(ui.side==="sched"?" on":"")+'" data-a="sideTab" data-v="sched">일정</button>'+
      '<button class="stab'+(ui.side==="memo"?" on":"")+'" data-a="sideTab" data-v="memo">메모'+(unread&&ui.side!=="memo"?'<b class="badge">'+unread+'</b>':'')+'</button>'+
@@ -401,8 +393,7 @@ function wxCard(label,k){
     '<div class="ic">'+esc(d.icon||"🌤️")+'</div>'+
     '<div class="tp"><span class="hi">'+esc(d.hi)+'°</span> <span style="color:var(--line)">/</span> <span class="lo">'+esc(d.lo)+'°</span></div>'+
     '<div class="sk">'+esc(d.sky||"")+'</div>'+
-    (d.pop!=null&&d.pop!==""?'<div class="pp">☔ 강수 '+esc(d.pop)+'%'+(d.dust?' · 미세먼지 '+esc(d.dust):'')+'</div>':'')+
-    (d.tip?'<div class="tip">'+esc(d.tip)+'</div>':'')+'</div>';
+    (d.pop!=null&&d.pop!==""?'<div class="pp">☔ 강수 '+esc(d.pop)+'%'+(d.dust?' · 미세먼지 '+esc(d.dust):'')+'</div>':'')+'</div>';
 }
 function renderEvents(tk){
   var list=events.filter(function(e){return e.d>=tk}).sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:((a.time||"")<(b.time||"")?-1:1)});
@@ -783,16 +774,6 @@ function grade(pm10,pm25){
   var g25=pm25==null?-1:pm25<=15?0:pm25<=35?1:pm25<=75?2:3;
   var g=Math.max(g10,g25);return g<0?"":["좋음","보통","나쁨","매우나쁨"][g];
 }
-function tipFor(d,code){
-  if([71,73,75,77,85,86].indexOf(code)>=0)return "눈 와요! 미끄럼 조심 ⛄";
-  if(d.pop>=50)return "우산 꼭 챙기기 ☂️";
-  if(d.dust==="나쁨"||d.dust==="매우나쁨")return "마스크 챙기기 😷";
-  if(d.lo<=-5)return "꽁꽁 추워요! 패딩·장갑·목도리";
-  if(d.lo<=0)return "영하권! 따뜻한 외투 입기";
-  if(d.hi>=30)return "더워요! 물 많이 마시기 💧";
-  if(d.hi-d.lo>=10)return "일교차 커요, 겉옷 챙기기";
-  return "밖에서 놀기 좋은 날 🌱";
-}
 function loadWeather(){
   var W=WEATHER||{name:"서울 광진구",lat:37.5385,lon:127.0823};
   var base="latitude="+W.lat+"&longitude="+W.lon+"&timezone=Asia%2FSeoul&forecast_days=2";
@@ -806,7 +787,7 @@ function loadWeather(){
         var avg=function(a){return a.length?a.reduce(function(x,y){return x+y},0)/a.length:null};dust=grade(avg(a10),avg(a25))}
       var d={d:k,icon:w[1],sky:w[2]+((f.wind_speed_10m_max[i]||0)>=30?" · 바람 강함":""),hi:Math.round(f.temperature_2m_max[i]),lo:Math.round(f.temperature_2m_min[i]),pop:f.precipitation_probability_max[i]==null?"":f.precipitation_probability_max[i]};
       if(dust)d.dust=dust;
-      d.tip=tipFor(d,code);days.push(d);
+      days.push(d);
     }
     weather={loc:W.name,updatedAt:new Date().toISOString(),days:days};render();
   }).catch(function(){if(!weather)weather={loc:W.name,days:[]};render()});
