@@ -107,6 +107,30 @@ body.pm .dayh .tag{color:#FCFCFC}
 .head{padding:12px 12px 8px;display:flex;align-items:center;gap:12px}
 .ava{width:60px;height:60px;display:grid;place-items:center;font-size:36px;flex:none;border:3px solid var(--line)}
 .who{flex:1;min-width:0}
+/* pixel pet */
+.pet{flex:none;width:64px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px;border:3px solid var(--line);background:var(--card);min-height:64px}
+.pet .psp{width:48px;height:48px;display:block}
+.pet svg,.pbig svg,.pmini svg{width:100%;height:100%;display:block;image-rendering:pixelated}
+.pxp{display:block;width:100%;height:6px;background:var(--chipbg);border:1px solid var(--line)}
+.pxp i{display:block;height:100%;background:var(--yel)}
+.pxp.big{height:14px;border-width:2px}
+.pet.hop .psp{animation:hop .45s steps(4) 1}
+.pet.evolve{animation:evolve 1.5s steps(6) 1}
+@keyframes hop{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes evolve{0%,100%{background:var(--card);transform:scale(1)}20%,60%{background:var(--yel);transform:scale(1.25)}40%,80%{background:#FCFCFC;transform:scale(1.1)}}
+.xpf{position:fixed;transform:translateX(-50%);pointer-events:none;z-index:50;font-size:18px;font-weight:700;color:var(--yel);text-shadow:2px 2px 0 #000;animation:xpup 1.2s steps(8) forwards}
+@keyframes xpup{0%{opacity:1;margin-top:0}100%{opacity:0;margin-top:-50px}}
+.petm .pbig{width:160px;height:160px;margin:0 auto;border:var(--px) solid var(--line);background:var(--card);padding:8px}
+.petm .pst{text-align:center;font-size:18px}
+.petm .pnext{display:flex;align-items:center;gap:12px;font-size:15px;line-height:1.5;padding:10px;border:2px dashed var(--cardline)}
+.petm .pmini{width:56px;height:56px;flex:none;filter:grayscale(1) opacity(.6)}
+@media (prefers-reduced-motion:reduce){
+  .pet.hop .psp,.pet.evolve{animation:none}
+  .pet.evolve{background:var(--yel)}
+  .xpf{animation:xpfade 1.2s linear forwards}
+  .burst{display:none}
+}
+@keyframes xpfade{0%{opacity:1}100%{opacity:0}}
 .name{font-weight:700;font-size:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prog{display:flex;align-items:center;gap:8px;margin-top:8px}
 .bar{flex:1;height:16px;background:var(--card);border:2px solid var(--line);overflow:hidden;position:relative}
@@ -275,7 +299,8 @@ textarea.inp{resize:none;height:110px;line-height:1.5}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { getFirestore, doc, collection, query, where, onSnapshot, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { getFirestore, doc, collection, query, where, onSnapshot, setDoc, updateDoc, deleteDoc, runTransaction } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { XP_PER_TASK, STAGES, stageOf, shownStage, toNext, stagePct, applyXp, xpKey } from "./pet.js";
 import { firebaseConfig, WEATHER } from "./firebase-config.js";
 
 /* Firestore를 대시보드가 쓰는 간단한 db 형태로 감싸는 어댑터 */
@@ -287,6 +312,7 @@ function mkDb(fs){
     return {id:r.id,path:path,
       set:function(d){return setDoc(r,d).catch(function(e){throw mapErr(e)})},
       update:function(d){return updateDoc(r,d).catch(function(e){throw mapErr(e)})},
+      merge:function(d){return setDoc(r,d,{merge:true}).catch(function(e){throw mapErr(e)})},
       delete:function(){return deleteDoc(r).catch(function(e){throw mapErr(e)})},
       onSnapshot:function(n,er){return onSnapshot(r,function(s){n(wrapDoc(s))},function(e){if(er)er(mapErr(e))})}};
   }
@@ -297,7 +323,21 @@ function mkDb(fs){
       where:function(f,op,v){return cref(path,(cons||[]).concat([where(f,op,v)]))},
       onSnapshot:function(n,er){var q=cons&&cons.length?query(c,...cons):c;return onSnapshot(q,function(s){n({docs:s.docs.map(wrapDoc),size:s.size,empty:s.empty})},function(e){if(er)er(mapErr(e))})}};
   }
-  return {doc:dref,collection:function(p){return cref(p)}};
+  // 펫 XP: 지급 기록(xp/{key})이 있는지 보고 체크=지급, 해제=취소. 트랜잭션이라 동시·중복 클릭에도 한 번만 반영
+  function xpTx(key,cid,on,meta){
+    var lr=doc(fs,"xp/"+key),pr=doc(fs,"pets/"+cid);
+    return runTransaction(fs,function(tx){
+      return Promise.all([tx.get(lr),tx.get(pr)]).then(function(r){
+        if(r[0].exists()===on)return null;
+        var now=Date.now(),old=r[1].exists()?r[1].data():{childId:cid,petId:"dragon",petName:"",totalXp:0,highestUnlockedStage:0,createdAt:now};
+        var nw=Object.assign({},old,applyXp(old,on),{updatedAt:now});
+        if(on)tx.set(lr,Object.assign({childId:cid,xp:XP_PER_TASK,at:now},meta));else tx.delete(lr);
+        tx.set(pr,nw);
+        return {before:old,after:nw};
+      });
+    }).catch(function(e){throw mapErr(e)});
+  }
+  return {doc:dref,collection:function(p){return cref(p)},xpTx:xpTx};
 }
 (function(){
 "use strict";
@@ -314,9 +354,10 @@ var events=[];             // [{id,d,time,t,who}]
 var weather=null;
 var conn="loading";        // loading | ok | slow | none
 var memos=[];
+var pets={};               // childId -> {petName,totalXp,highestUnlockedStage,...}
 var THEME=(function(){try{return localStorage.getItem("famdash_theme")||"light"}catch(e){return "light"}})();
 var memoSeen=(function(){try{return +localStorage.getItem("famdash_memoSeen")||0}catch(e){return 0}})();
-var ui={side:"sched",daySel:null,memo:null,memoSel:null,slot:null,edit:false,open:false,adding:null,addEmoji:"✅",addText:"",naming:null,picking:null,evSel:null,ev:null};
+var ui={pet:null,evolve:null,side:"sched",daySel:null,memo:null,memoSel:null,slot:null,edit:false,open:false,adding:null,addEmoji:"✅",addText:"",naming:null,picking:null,evSel:null,ev:null};
 var syncMsg="";
 
 /* ---------- utils ---------- */
@@ -437,7 +478,7 @@ function renderCol(m,slot,tk){
   h+='<div class="head"><div class="ava" style="background:'+soft(m.color)+'" '+(ui.edit?'data-a="pick" data-m="'+m.id+'"':'')+'>'+esc(m.emoji)+'</div><div class="who">';
   if(ui.edit&&ui.naming===m.id){h+='<input class="nameIn" data-focus data-in="name" data-m="'+m.id+'" value="'+esc(m.name)+'" maxlength="8">'}
   else{h+='<div class="name" '+(ui.edit?'data-a="name" data-m="'+m.id+'"':'')+'>'+esc(m.name)+(ui.edit?' <small style="font-size:14px;color:var(--sub)">✎</small>':'')+'</div>'}
-  h+='<div class="prog"><div class="bar"><i style="width:'+pct+'%;background:'+esc(m.color)+'"></i></div><span class="cnt">'+n+"/"+list.length+'</span></div></div></div>';
+  h+='<div class="prog"><div class="bar"><i style="width:'+pct+'%;background:'+esc(m.color)+'"></i></div><span class="cnt">'+n+"/"+list.length+'</span></div></div>'+(m.adult?'':petBtn(m))+'</div>';
   if(ui.picking===m.id){
     h+='<div class="picker"><div class="emos">'+AVATARS.map(function(e){return '<button data-a="setAva" data-m="'+m.id+'" data-v="'+e+'" class="'+(e===m.emoji?"on":"")+'">'+e+'</button>'}).join("")+'</div>'+
        '<div class="colors">'+COLORS.map(function(c){return '<button data-a="setColor" data-m="'+m.id+'" data-v="'+c+'" style="background:'+c+'" class="'+(c===m.color?"on":"")+'"></button>'}).join("")+'</div>'+
@@ -546,6 +587,7 @@ function renderMemoModal(){
     '<div class="row"><button class="btn" data-a="evClose">취소</button><button class="btn pri" data-a="mSave">'+(m.id?"저장":"남기기")+'</button></div></div></div>';
 }
 function renderModal(){
+  if(ui.pet){renderPetModal();return}
   if(ui.memo){renderMemoModal();return}
   if(!ui.ev){modal.innerHTML="";return}
   var e=ui.ev,tk=todayKey();
@@ -564,6 +606,7 @@ function renderModal(){
   modal.innerHTML=h;
 }
 modal.addEventListener("input",function(e){
+  if(ui.pet&&e.target.id==="petN"){ui.pet.name=e.target.value;return}
   if(ui.memo&&e.target.id==="mT"){ui.memo.text=e.target.value;return}
   if(!ui.ev)return;
   if(e.target.id==="evT")ui.ev.t=e.target.value;
@@ -574,7 +617,18 @@ modal.addEventListener("click",function(e){
   var el=e.target.closest("[data-a]");
   if(!el){return}
   var a=el.dataset.a,v=el.dataset.v;
-  if(a==="evClose"){if(el.classList.contains("modalBg")&&e.target!==el)return;ui.ev=null;ui.memo=null;renderModal();return}
+  if(a==="evClose"){if(el.classList.contains("modalBg")&&e.target!==el)return;ui.ev=null;ui.memo=null;ui.pet=null;renderModal();return}
+  if(ui.pet){
+    if(a==="petSave"){
+      var pn=(ui.pet.name||"").trim();if(!pn){toast("펫 이름을 써 주세요");return}
+      var cid=ui.pet.m,now=Date.now(),body={childId:cid,petId:"dragon",petName:pn,updatedAt:now};
+      if(!pets[cid])body.createdAt=now;
+      pets[cid]=Object.assign({},petOf(cid),body);ui.pet=null;renderModal();render();
+      if(db)db.doc("pets/"+cid).merge(body).catch(writeFail);
+      toast("이름을 ‘"+pn+"’(으)로 바꿨어요");
+    }
+    return;
+  }
   if(ui.memo){
     var mm=ui.memo;
     if(a==="mFrom"){mm.from=v;mm.to=mm.to.filter(function(x){return x!==v});renderModal();return}
@@ -642,6 +696,65 @@ function writeFail(err){
   if(c==="invalid_argument"||c==="not_granted"||c==="revoked"){syncMsg="보기 전용";toast("이 계정은 보기만 할 수 있어요")}
   else{syncMsg="저장 실패";toast("저장하지 못했어요. 잠시 후 다시 눌러 주세요")}
   renderSync();
+}
+
+/* ---------- pixel pet ---------- */
+var PET_PAL={K:"#000",G:"#00A800",L:"#80D010",Y:"#F8B800",W:"#FCFCFC",R:"#F83800"};
+var PET_ART=[
+ ["................","......KKKK......",".....KWWWWK.....","....KWWGGWWK....","....KWGGGWWK....","...KWWWWWWWWK...","...KWWWWWGGWK...","...KGGWWWGGWK...",
+  "...KGGWWWWWWK...","...KWWWWWWWWK...","...KWWWGGWWWK...","....KWWGGWWK....","....KWWWWWWK....",".....KKKKKK.....","................","................"],
+ ["................","....K......K....","...KYK....KYK...","...KGGKKKKGGK...","..KGGGGGGGGGGK..","..KGWKGGGGWKGK..","..KGKKGGGGKKGK..","..KGGGGGGGGGGK..",
+  "..KGGGRRRRGGGK..","...KGGGGGGGGK...","..KGKYYYYYYKGK..",".KGGKYYYYYYKGGK.",".KGGKYYYYYYKGGK.","..KKKYYYYYYKKK..","...KGGK..KGGK...","...KKKK..KKKK..."],
+ ["................","....K......K....","...KYK....KYK...","...KGGKKKKGGK...","..KGGGGGGGGGGK..","..KGWKGGGGWKGK..","..KGKKGGGGKKGK..","..KGGGGGGGGGGK..",
+  "..KGGGRRRRGGGK..","K..KGGGGGGGGK..K","KLKGKYYYYYYKGKLK","KLLKGYYYYYYGKLLK",".KLKGYYYYYYGKLK.","..KKGYYYYYYGKK..","...KGGK..KGGKGK.","...KKKK..KKKKKK."],
+ ["K..............K","KK..K......K..KK","KLK.KYK..KYK.KLK","KLLKKGGKKGGKKLLK","KLLKGGGGGGGGKLLK",".KLKGWKGGWKGKLK.",".KLKGKKGGKKGKLK.","..KKGGGGGGGGKK..",
+  "..KGGRRRRRRGGK..",".KGGGKKKKKKGGGK.","KGGKYYYYYYYYKGGK","KGKYYYYYYYYYYKGK",".KKYYYYYYYYYYKK.","..KGYYYYYYYYGK..","..KGGK....KGGKGK","..KKKK....KKKKKK"]];
+function petSvg(stage){
+  var g=PET_ART[stage]||PET_ART[0],r="";
+  g.forEach(function(row,y){for(var x=0;x<16;x++){var c=PET_PAL[row.charAt(x)];if(c)r+='<rect x="'+x+'" y="'+y+'" width="1" height="1" fill="'+c+'"/>'}});
+  return '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">'+r+'</svg>';
+}
+function petOf(cid){var p=pets[cid]||{};return {petName:p.petName||"",totalXp:+p.totalXp||0,highestUnlockedStage:+p.highestUnlockedStage||0,createdAt:p.createdAt}}
+function petBtn(m){
+  var p=petOf(m.id),st=shownStage(p);
+  return '<button class="pet'+(ui.evolve===m.id?" evolve":"")+'" data-a="petOpen" data-m="'+esc(m.id)+'" aria-label="'+esc(p.petName||"용용이")+' '+STAGES[st].name+' 보기">'+
+    '<span class="psp">'+petSvg(st)+'</span><span class="pxp"><i style="width:'+stagePct(p)+'%"></i></span></button>';
+}
+function petCheer(cid){
+  var b=root.querySelector('.pet[data-m="'+cid+'"]');if(!b)return;
+  b.classList.remove("hop");void b.offsetWidth;b.classList.add("hop");
+  var r=b.getBoundingClientRect(),s=document.createElement("span");
+  s.className="xpf";s.textContent="+"+XP_PER_TASK+" XP";s.style.left=(r.left+r.width/2)+"px";s.style.top=r.top+"px";
+  document.body.appendChild(s);setTimeout(function(){s.remove()},1300);
+}
+var xpBusy={};
+function xpSync(k,t){
+  if(!db)return;
+  var key=xpKey(k,t.m,t.s,t.id);
+  if(xpBusy[key]){xpBusy[key]=2;return}          // 진행 중이면 끝난 뒤 최종 체크 상태로 한 번 더
+  xpBusy[key]=1;
+  db.xpTx(key,t.m,isDone(k,t.id),{d:k,slot:t.s,taskId:t.id}).then(function(r){
+    if(r&&shownStage(r.after)>shownStage(r.before))petEvolve(t.m,shownStage(r.after));
+  },writeFail).then(function(){var again=xpBusy[key]===2;delete xpBusy[key];if(again)xpSync(k,t)});
+}
+function petEvolve(cid,st){
+  ui.evolve=cid;render();
+  var b=root.querySelector('.pet[data-m="'+cid+'"]');
+  if(b){var r=b.getBoundingClientRect();burst(r.left+r.width/2,r.top+r.height/2,true)}
+  toast("🎉 "+(petOf(cid).petName||"용용이")+"이(가) ‘"+STAGES[st].name+"’ 단계로 성장했어요!");
+  setTimeout(function(){if(ui.evolve===cid){ui.evolve=null;render()}},1600);
+}
+function renderPetModal(){
+  var cid=ui.pet.m,m=memberById(cid)||{},p=petOf(cid),st=shownStage(p),nx=toNext(p);
+  modal.innerHTML='<div class="modalBg" data-a="evClose"><div class="modal petm">'+
+    '<h3>▶ '+esc(m.name||"")+'의 펫</h3>'+
+    '<div class="pbig">'+petSvg(st)+'</div>'+
+    '<div class="pst"><b>'+STAGES[st].name+'</b> · 누적 '+p.totalXp+' XP</div>'+
+    '<div class="pxp big"><i style="width:'+stagePct(p)+'%"></i></div>'+
+    '<div class="pnext">'+(nx==null?'★ 최종 단계에 도달했어요! 경험치는 계속 쌓여요.':
+      '<span class="pmini">'+petSvg(st+1)+'</span><span>다음 단계 <b>'+STAGES[st+1].name+'</b>까지<br><b>'+nx+' XP</b> 남았어요 (할 일 '+Math.ceil(nx/XP_PER_TASK)+'개)</span>')+'</div>'+
+    '<div><div class="fl">펫 이름</div><input id="petN" class="inp" maxlength="10" value="'+esc(ui.pet.name)+'"></div>'+
+    '<div class="row"><button class="btn" data-a="evClose">닫기</button><button class="btn pri" data-a="petSave">이름 저장</button></div></div></div>';
 }
 
 /* ---------- effects ---------- */
@@ -715,8 +828,14 @@ root.addEventListener("click",function(e){
         if(col){var c=col.getBoundingClientRect();setTimeout(function(){burst(c.left+c.width/2,c.top+c.height/3,true)},150)}
       }
     }
-    flushChecks(tk);return;
+    flushChecks(tk);
+    if(t&&!(memberById(t.m)||{}).adult){
+      if(nv)petCheer(t.m);
+      xpSync(tk,t);
+    }
+    return;
   }
+  if(a==="petOpen"){var pm=petOf(el.dataset.m);ui.pet={m:el.dataset.m,name:pm.petName||"용용이"};renderModal();return}
   if(a==="del"){
     if(el.dataset.sure!=="1"){el.dataset.sure="1";el.textContent="삭제?";setTimeout(function(){if(el.isConnected){el.dataset.sure="";el.textContent="✕"}},2500);return}
     var tt=cfg.tasks.find(function(x){return x.id===id});
@@ -775,6 +894,9 @@ function start(){
     cfg={members:JSON.parse(JSON.stringify(x.members||[])),tasks:JSON.parse(JSON.stringify(x.tasks||[]))};
     conn="ok";render();
   },function(e){clearTimeout(slowT);conn=(e&&e.code==="invalid_argument")?"denied":"slow";render()});
+  db.collection("pets").onSnapshot(function(s){
+    var n={};s.docs.forEach(function(d){n[d.id]=d.data()||{}});pets=n;render();if(ui.pet)renderModal();
+  },function(){});
   db.collection("memos").onSnapshot(function(s){
     memos=s.docs.map(function(d){var x=d.data()||{};return {id:d.id,from:String(x.from||""),to:Array.isArray(x.to)?x.to:[],text:String(x.text||""),at:+x.at||0,likes:+x.likes||0}});
     if(ui.side==="memo"){markSeen()}
