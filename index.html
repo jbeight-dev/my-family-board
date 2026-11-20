@@ -227,18 +227,6 @@ body.pm .dayh .tag{color:#FCFCFC}
 .chips input{width:auto;padding:8px 10px;font-size:15px}
 
 
-/* week strip */
-.wk{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:10px 10px 8px;border-bottom:var(--px) solid var(--line)}
-.wd{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 5px;background:var(--card);border:2px solid var(--cardline);cursor:pointer}
-.wd .wn{font-size:11px;color:var(--muted)}
-.wd .wdn{font-size:17px;font-weight:700}
-.wd .dots{height:8px;display:flex;gap:2px}
-.wd .dots i{width:6px;height:6px;background:var(--yel)}
-.wd.sat .wn{color:var(--lo)} .wd.sun .wn,.wd.hol .wn,.wd.hol .wdn{color:var(--hi)}
-.wd.today{border-color:var(--yel);background:var(--todaybg)}
-.wd.sel{border-color:var(--red);box-shadow:0 0 0 2px var(--red)}
-.wd.past{opacity:.55}
-.sh h2{cursor:pointer}
 /* calendar view */
 .calBg{position:fixed;inset:0;z-index:30;background:var(--veil);padding:16px 16px 36px;display:flex}
 .calv{flex:1;display:grid;grid-template-columns:1fr 330px;gap:16px;min-height:0}
@@ -374,7 +362,7 @@ var pets={};
 var xpPend={};            // "date|taskId" -> bool  (아이 루틴: 트랜잭션 저장 전 화면 상태)               // childId -> {petName,totalXp,highestUnlockedStage,...}
 var THEME=(function(){try{return localStorage.getItem("famdash_theme")||"light"}catch(e){return "light"}})();
 var memoSeen=(function(){try{return +localStorage.getItem("famdash_memoSeen")||0}catch(e){return 0}})();
-var ui={pet:null,evolve:null,side:"sched",daySel:null,memo:null,memoSel:null,slot:null,edit:false,open:false,adding:null,addEmoji:"✅",addText:"",naming:null,picking:null,evSel:null,ev:null};
+var ui={pet:null,evolve:null,side:"sched",memo:null,memoSel:null,slot:null,edit:false,open:false,adding:null,addEmoji:"✅",addText:"",naming:null,picking:null,evSel:null,ev:null};
 var syncMsg="";
 
 /* ---------- utils ---------- */
@@ -446,7 +434,7 @@ function renderSide(tk){
   h+='<section class="sched"><div class="sh tabs"><button class="stab'+(ui.side==="sched"?" on":"")+'" data-a="sideTab" data-v="sched">일정</button>'+
      '<button class="stab'+(ui.side==="memo"?" on":"")+'" data-a="sideTab" data-v="memo">메모'+(unread&&ui.side!=="memo"?'<b class="badge">'+unread+'</b>':'')+'</button>'+
      '<button class="plus" data-a="'+(ui.side==="memo"?"memoNew":"evNew")+'">＋ '+(ui.side==="memo"?"메모":"일정")+'</button></div>'+
-     (ui.side==="memo"?'<div class="memos">'+renderMemos()+'</div>':renderWeekStrip(tk)+'<div class="evs">'+renderEvents(tk)+'</div>')+'</section></aside>';
+     (ui.side==="memo"?'<div class="memos">'+renderMemos()+'</div>':'<div class="evs">'+renderEvents(tk)+'</div>')+'</section></aside>';
   return h;
 }
 function wxCard(label,k){
@@ -460,11 +448,6 @@ function wxCard(label,k){
     (d.pop!=null&&d.pop!==""?'<div class="pp">☔ 강수 '+esc(d.pop)+'%'+(d.dust?' · 미세먼지 '+esc(d.dust):'')+'</div>':'')+'</div>';
 }
 function renderEvents(tk){
-  if(ui.daySel&&ui.daySel>=mondayOf(tk)&&ui.daySel<addDays(mondayOf(tk),7)){
-    var k=ui.daySel,l=evOn(k);
-    return '<div class="dayh'+(k===tk?" today":"")+'">'+(k===tk?'<span class="tag">오늘</span>':'')+(+k.slice(5,7))+"/"+(+k.slice(8))+" ("+DAYS[dowOf(k)]+')'+(HOL[k]?' '+HOL[k]:'')+'</div>'+
-      (l.length?l.map(evRow).join(""):'<div class="noev">일정 없음</div>');
-  }
   var list=events.filter(function(e){return e.d>=tk}).sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:((a.time||"")<(b.time||"")?-1:1)});
   var tm=addDays(tk,1),h="";
   [tk,tm].forEach(function(k){
@@ -545,14 +528,6 @@ var HOL={"2026-01-01":"신정","2026-02-16":"설날 연휴","2026-02-17":"설날
 "2027-10-09":"한글날","2027-10-11":"대체공휴일","2027-12-25":"성탄절","2027-12-27":"대체공휴일"};
 function mondayOf(k){return addDays(k,-((dowOf(k)+6)%7))}
 function evOn(k){return events.filter(function(e){return e.d===k}).sort(function(a,b){return (a.time||"")<(b.time||"")?-1:1})}
-function renderWeekStrip(tk){
-  var mon=mondayOf(tk),h='<div class="wk">';
-  for(var i=0;i<7;i++){
-    var k=addDays(mon,i),n=evOn(k).length;
-    h+='<div class="wd'+(i===5?" sat":i===6?" sun":"")+(HOL[k]?" hol":"")+(k===tk?" today":k<tk?" past":"")+(k===ui.daySel?" sel":"")+'" data-a="daySel" data-v="'+k+'"><span class="wn">'+DAYS[dowOf(k)]+'</span><span class="wdn">'+(+k.slice(8))+'</span><span class="dots">'+new Array(Math.min(n,3)+1).join("<i></i>")+'</span></div>';
-  }
-  return h+'</div>';
-}
 function renderCal(tk){
   var c=ui.cal,first=c.y+"-"+pad(c.m+1)+"-01",start=mondayOf(first);
   var h='<div class="calBg"><div class="calv"><section class="calm"><div class="calh">'+
@@ -826,7 +801,7 @@ root.addEventListener("click",function(e){
   if(a==="edit"){ui.edit=!ui.edit;ui.adding=null;ui.naming=null;ui.picking=null;render();return}
   if(a==="openAdults"){ui.open=true;render();touchIdle();return}
   if(a==="closeAdults"){ui.open=false;ui.adding=null;ui.picking=null;ui.naming=null;render();return}
-  if(a==="evNew"){openEv(ui.daySel);return}
+  if(a==="evNew"){openEv();return}
   if(a==="theme"){THEME=THEME==="light"?"dark":"light";try{localStorage.setItem("famdash_theme",THEME)}catch(err){}render();return}
   if(a==="sideTab"){if(v==="memo"&&ui.side!=="memo"){ui.seenAtOpen=memoSeen;markSeen()}ui.side=v;render();return}
   if(a==="memoNew"){ui.memo={from:null,to:[],text:""};renderModal();setTimeout(function(){var t=modal.querySelector("#mT");if(t)t.focus()},50);return}
@@ -836,7 +811,6 @@ root.addEventListener("click",function(e){
   if(a==="memoLike"){var mo=memos.find(function(x){return x.id===id});if(!mo)return;mo.likes=(mo.likes||0)+1;render();var r2=el.getBoundingClientRect();burst(r2.left+r2.width/2,r2.top,false);if(db)db.collection("memos").doc(id).update({likes:mo.likes}).catch(function(){});return}
   if(a==="evNewDay"){openEv(v);return}
   if(a==="calOpen"){openCal(todayKey());return}
-  if(a==="daySel"){ui.daySel=ui.daySel===v?null:v;render();return}
   if(a==="calSel"){ui.cal.sel=v;ui.evSel=null;var p=v.split("-");if(+p[1]-1!==ui.cal.m){ui.cal.y=+p[0];ui.cal.m=+p[1]-1}render();return}
   if(a==="calPrev"){shiftMonth(-1);return}
   if(a==="calNext"){shiftMonth(1);return}
