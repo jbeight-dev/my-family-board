@@ -318,6 +318,10 @@ textarea.inp{resize:none;height:110px;line-height:1.5}
 <body class="am">
 <div id="root"><div class="msg">불러오는 중…</div></div>
 <div id="modal"></div>
+<script>
+// 배포 직후 캐시된 옛 index.html과 새 모듈(pet.js 등)이 섞이면 import 오류로 시작조차 못 함 → 한 번만 새로고침
+setTimeout(function(){if(window.__boot)return;try{if(sessionStorage.getItem("famdash_reload"))return;sessionStorage.setItem("famdash_reload","1")}catch(e){return}location.reload()},8000);
+</script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
@@ -350,6 +354,7 @@ function mkDb(fs){
   function toggle(k,cid,id,on){return toggleTask({doc:doc,runTransaction:runTransaction},fs,k,cid,id,on).catch(function(e){throw mapErr(e)})}
   return {doc:dref,collection:function(p){return cref(p)},toggle:toggle};
 }
+window.__boot=1;try{sessionStorage.removeItem("famdash_reload")}catch(e){}
 (function(){
 "use strict";
 var EMOJIS=["✅","🪥","🧼","🛁","🛏️","👕","🎒","🥣","🍳","🍽️","💧","💊","📖","✏️","🎹","⚽","🧸","🐶","🌱","♻️","🧘","🏃","📝","🌙"];
