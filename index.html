@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>우리 가족 할 일</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="가족보드">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <style>
 @font-face{font-family:Galmuri11;src:url(fonts/Galmuri11.woff2) format("woff2");font-weight:400;font-display:swap}
 @font-face{font-family:Galmuri11;src:url(fonts/Galmuri11-Bold.woff2) format("woff2");font-weight:700;font-display:swap}
@@ -208,6 +215,17 @@ body.pm .dayh .tag{color:#FCFCFC}
   .calv{grid-template-columns:1fr;grid-template-rows:minmax(0,1.4fr) minmax(0,1fr)}
 }
 
+/* 가로 패드처럼 세로가 짧은 화면: 시계·날씨를 줄여 일정 칸을 넓힘 */
+@media (orientation:landscape) and (max-height:900px){
+  .clockbox{padding:8px 12px}
+  .clock{font-size:42px}
+  .date{margin-top:6px}
+  .wxc{min-height:0;padding:8px}
+  .wxc .ic{font-size:28px}
+  .wxc .tp{font-size:19px}
+  .wxc .tip{display:none}
+  .side{gap:12px}
+}
 /* side tabs + memos */
 .sh.tabs{gap:6px;padding:8px 8px 8px 8px}
 .stab{flex:1;padding:9px 6px;font-size:16px;font-weight:700;color:var(--faint);border:3px solid transparent;position:relative}
@@ -241,7 +259,7 @@ textarea.inp{resize:none;height:110px;line-height:1.5}
   .side{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:stretch}
   .clockbox{align-self:stretch;display:flex;flex-direction:column;justify-content:center}
   .wxmeta{grid-column:1/-1}
-  .sched{grid-column:1/-1;max-height:260px}
+  .sched{grid-column:1/-1;min-height:380px}
   .main{min-height:640px}
   .drawer{width:94%}
 }
