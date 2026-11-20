@@ -190,6 +190,7 @@ body.pm .dayh .tag{color:#FCFCFC}
 .wd .dots i{width:6px;height:6px;background:var(--yel)}
 .wd.sat .wn{color:var(--lo)} .wd.sun .wn,.wd.hol .wn,.wd.hol .wdn{color:var(--hi)}
 .wd.today{border-color:var(--yel);background:var(--todaybg)}
+.wd.sel{border-color:var(--red);box-shadow:0 0 0 2px var(--red)}
 .wd.past{opacity:.55}
 .sh h2{cursor:pointer}
 /* calendar view */
@@ -231,8 +232,8 @@ body.pm .dayh .tag{color:#FCFCFC}
 }
 /* side tabs + memos */
 .sh.tabs{gap:4px;padding:10px 8px 0;align-items:flex-end}
-.stab{flex:1;padding:9px 6px;font-size:16px;font-weight:700;color:var(--faint);background:var(--card);border:var(--px) solid var(--cardline);border-bottom:0;position:relative}
-.stab.on{color:var(--fg);background:var(--panel);border-color:var(--line);padding-bottom:calc(9px + var(--px));margin-bottom:calc(-1 * var(--px));z-index:1}
+.stab{flex:1;min-height:52px;padding:12px 6px;font-size:18px;font-weight:700;color:var(--muted);background:var(--chipbg);border:var(--px) solid var(--line);border-bottom:0;position:relative}
+.stab.on{color:var(--fg);background:var(--panel);padding-bottom:calc(12px + var(--px));margin-bottom:calc(-1 * var(--px));z-index:1}
 .sh.tabs .plus{align-self:center;margin:0 0 6px 4px}
 .stab.on::before{content:"▶";color:var(--hl);margin-right:3px}
 .badge{position:absolute;top:-8px;right:-6px;background:var(--red);color:#FCFCFC;font-size:12px;min-width:22px;height:22px;line-height:18px;border:2px solid var(--line);text-align:center;animation:blink 1s steps(1) infinite}
@@ -315,7 +316,7 @@ var conn="loading";        // loading | ok | slow | none
 var memos=[];
 var THEME=(function(){try{return localStorage.getItem("famdash_theme")||"light"}catch(e){return "light"}})();
 var memoSeen=(function(){try{return +localStorage.getItem("famdash_memoSeen")||0}catch(e){return 0}})();
-var ui={side:"sched",memo:null,memoSel:null,slot:null,edit:false,open:false,adding:null,addEmoji:"✅",addText:"",naming:null,picking:null,evSel:null,ev:null};
+var ui={side:"sched",daySel:null,memo:null,memoSel:null,slot:null,edit:false,open:false,adding:null,addEmoji:"✅",addText:"",naming:null,picking:null,evSel:null,ev:null};
 var syncMsg="";
 
 /* ---------- utils ---------- */
@@ -402,6 +403,11 @@ function wxCard(label,k){
     (d.pop!=null&&d.pop!==""?'<div class="pp">☔ 강수 '+esc(d.pop)+'%'+(d.dust?' · 미세먼지 '+esc(d.dust):'')+'</div>':'')+'</div>';
 }
 function renderEvents(tk){
+  if(ui.daySel&&ui.daySel>=mondayOf(tk)&&ui.daySel<addDays(mondayOf(tk),7)){
+    var k=ui.daySel,l=evOn(k);
+    return '<div class="dayh'+(k===tk?" today":"")+'">'+(k===tk?'<span class="tag">오늘</span>':'')+(+k.slice(5,7))+"/"+(+k.slice(8))+" ("+DAYS[dowOf(k)]+')'+(HOL[k]?' '+HOL[k]:'')+'</div>'+
+      (l.length?l.map(evRow).join(""):'<div class="noev">일정 없음</div>');
+  }
   var list=events.filter(function(e){return e.d>=tk}).sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:((a.time||"")<(b.time||"")?-1:1)});
   var tm=addDays(tk,1),h="";
   [tk,tm].forEach(function(k){
@@ -486,7 +492,7 @@ function renderWeekStrip(tk){
   var mon=mondayOf(tk),h='<div class="wk">';
   for(var i=0;i<7;i++){
     var k=addDays(mon,i),n=evOn(k).length;
-    h+='<div class="wd'+(i===5?" sat":i===6?" sun":"")+(HOL[k]?" hol":"")+(k===tk?" today":k<tk?" past":"")+'" data-a="calDay" data-v="'+k+'"><span class="wn">'+DAYS[dowOf(k)]+'</span><span class="wdn">'+(+k.slice(8))+'</span><span class="dots">'+new Array(Math.min(n,3)+1).join("<i></i>")+'</span></div>';
+    h+='<div class="wd'+(i===5?" sat":i===6?" sun":"")+(HOL[k]?" hol":"")+(k===tk?" today":k<tk?" past":"")+(k===ui.daySel?" sel":"")+'" data-a="daySel" data-v="'+k+'"><span class="wn">'+DAYS[dowOf(k)]+'</span><span class="wdn">'+(+k.slice(8))+'</span><span class="dots">'+new Array(Math.min(n,3)+1).join("<i></i>")+'</span></div>';
   }
   return h+'</div>';
 }
@@ -524,7 +530,7 @@ function renderMemos(){
       '<span class="mav" style="background:'+(f?soft(f.color):"var(--card)")+'">'+(f?esc(f.emoji):"💬")+'</span><span class="mn">'+(f?esc(f.name):"가족")+'</span>'+
       '<span class="mto">→ '+(to?esc(to):"모두에게")+'</span><span class="mt">'+(isNew?'<span class="newtag">NEW</span> ':'')+ago(m.at)+'</span></div>'+
       '<div class="mx">'+esc(m.text)+'</div><div class="mf">'+
-      (sel?'<button class="evdel" data-a="memoDel" data-id="'+esc(m.id)+'">삭제</button>':'')+
+      (sel?'<button class="chipb" data-a="memoEdit" data-id="'+esc(m.id)+'">수정</button><button class="evdel" data-a="memoDel" data-id="'+esc(m.id)+'">삭제</button>':'')+
       '<button class="like'+((m.likes||0)>0?" on":"")+'" data-a="memoLike" data-id="'+esc(m.id)+'">♥ '+(m.likes||0)+'</button></div></div>';
   }).join("");
 }
@@ -532,12 +538,12 @@ function markSeen(){memoSeen=Date.now();try{localStorage.setItem("famdash_memoSe
 function renderMemoModal(){
   var m=ui.memo;
   modal.innerHTML='<div class="modalBg" data-a="evClose"><div class="modal">'+
-    '<h3>▶ 메모 남기기</h3>'+
+    '<h3>▶ 메모 '+(m.id?"수정":"남기기")+'</h3>'+
     '<div><div class="fl">누가 쓰나요?</div><div class="chips">'+members().map(function(x){return '<button class="chipb'+(m.from===x.id?" on":"")+'" data-a="mFrom" data-v="'+x.id+'">'+esc(x.emoji)+' '+esc(x.name)+'</button>'}).join("")+'</div></div>'+
     '<div><div class="fl">누구에게</div><div class="chips"><button class="chipb'+(m.to.length?"":" on")+'" data-a="mToAll">👨‍👩‍👧‍👦 모두에게</button>'+
       members().filter(function(x){return x.id!==m.from}).map(function(x){return '<button class="chipb'+(m.to.indexOf(x.id)>=0?" on":"")+'" data-a="mTo" data-v="'+x.id+'">'+esc(x.emoji)+' '+esc(x.name)+'</button>'}).join("")+'</div></div>'+
     '<div><div class="fl">하고 싶은 말</div><textarea id="mT" class="inp" maxlength="80" placeholder="예: 오늘 저녁은 치킨이에요! 🍗">'+esc(m.text)+'</textarea></div>'+
-    '<div class="row"><button class="btn" data-a="evClose">취소</button><button class="btn pri" data-a="mSave">남기기</button></div></div></div>';
+    '<div class="row"><button class="btn" data-a="evClose">취소</button><button class="btn pri" data-a="mSave">'+(m.id?"저장":"남기기")+'</button></div></div></div>';
 }
 function renderModal(){
   if(ui.memo){renderMemoModal();return}
@@ -578,6 +584,12 @@ modal.addEventListener("click",function(e){
       var tx=(mm.text||"").trim();
       if(!mm.from){toast("누가 쓰는지 골라 주세요");return}
       if(!tx){toast("메모 내용을 써 주세요");return}
+      if(mm.id){
+        var mo2=memos.find(function(x){return x.id===mm.id}),up2={from:mm.from,to:mm.to.slice(),text:tx};
+        if(mo2)Object.assign(mo2,up2);ui.memo=null;renderModal();render();
+        if(db)db.collection("memos").doc(mm.id).update(up2).catch(writeFail);
+        toast("메모를 고쳤어요");return;
+      }
       var mid=uid("m"),md={from:mm.from,to:mm.to.slice(),text:tx,at:Date.now(),likes:0};
       memos.push(Object.assign({id:mid},md));ui.memo=null;markSeen();ui.seenAtOpen=memoSeen;renderModal();render();
       if(db)db.collection("memos").doc(mid).set(md).catch(writeFail);
@@ -672,16 +684,17 @@ root.addEventListener("click",function(e){
   if(a==="edit"){ui.edit=!ui.edit;ui.adding=null;ui.naming=null;ui.picking=null;render();return}
   if(a==="openAdults"){ui.open=true;render();touchIdle();return}
   if(a==="closeAdults"){ui.open=false;ui.adding=null;ui.picking=null;ui.naming=null;render();return}
-  if(a==="evNew"){openEv();return}
+  if(a==="evNew"){openEv(ui.daySel);return}
   if(a==="theme"){THEME=THEME==="light"?"dark":"light";try{localStorage.setItem("famdash_theme",THEME)}catch(err){}render();return}
-  if(a==="sideTab"){if(v==="memo"&&ui.side!=="memo"){ui.seenAtOpen=memoSeen;markSeen()}ui.side=v;ui.memoSel=null;render();return}
+  if(a==="sideTab"){if(v==="memo"&&ui.side!=="memo"){ui.seenAtOpen=memoSeen;markSeen()}ui.side=v;render();return}
   if(a==="memoNew"){ui.memo={from:null,to:[],text:""};renderModal();setTimeout(function(){var t=modal.querySelector("#mT");if(t)t.focus()},50);return}
+  if(a==="memoEdit"){var me=memos.find(function(x){return x.id===id});if(!me)return;ui.memo={id:id,from:me.from,to:(me.to||[]).slice(),text:me.text};renderModal();return}
   if(a==="memoTap"){ui.memoSel=ui.memoSel===id?null:id;render();return}
   if(a==="memoDel"){memos=memos.filter(function(x){return x.id!==id});ui.memoSel=null;render();if(db)db.collection("memos").doc(id).delete().catch(writeFail);toast("메모를 지웠어요");return}
   if(a==="memoLike"){var mo=memos.find(function(x){return x.id===id});if(!mo)return;mo.likes=(mo.likes||0)+1;render();var r2=el.getBoundingClientRect();burst(r2.left+r2.width/2,r2.top,false);if(db)db.collection("memos").doc(id).update({likes:mo.likes}).catch(function(){});return}
   if(a==="evNewDay"){openEv(v);return}
   if(a==="calOpen"){openCal(todayKey());return}
-  if(a==="calDay"){openCal(v);return}
+  if(a==="daySel"){ui.daySel=ui.daySel===v?null:v;render();return}
   if(a==="calSel"){ui.cal.sel=v;ui.evSel=null;var p=v.split("-");if(+p[1]-1!==ui.cal.m){ui.cal.y=+p[0];ui.cal.m=+p[1]-1}render();return}
   if(a==="calPrev"){shiftMonth(-1);return}
   if(a==="calNext"){shiftMonth(1);return}
