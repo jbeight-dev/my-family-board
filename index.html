@@ -474,10 +474,10 @@ function renderCol(m,slot,tk){
   var n=list.filter(function(t){return isDone(tk,t.id)}).length;
   var pct=list.length?Math.round(n/list.length*100):0;
   var h='<section class="col" style="--c:'+esc(m.color)+';--c-soft:'+soft(m.color)+'">';
-  h+='<div class="head"><div class="ava" style="background:'+soft(m.color)+'" '+(ui.edit?'data-a="pick" data-m="'+m.id+'"':'')+'>'+esc(m.emoji)+'</div><div class="who">';
+  h+='<div class="head">'+(m.adult?'<div class="ava" style="background:'+soft(m.color)+'" '+(ui.edit?'data-a="pick" data-m="'+m.id+'"':'')+'>'+esc(m.emoji)+'</div>':petBtn(m))+'<div class="who">';
   if(ui.edit&&ui.naming===m.id){h+='<input class="nameIn" data-focus data-in="name" data-m="'+m.id+'" value="'+esc(m.name)+'" maxlength="8">'}
   else{h+='<div class="name" '+(ui.edit?'data-a="name" data-m="'+m.id+'"':'')+'>'+esc(m.name)+(ui.edit?' <small style="font-size:14px;color:var(--sub)">✎</small>':'')+'</div>'}
-  h+='<div class="prog"><div class="bar"><i style="width:'+pct+'%;background:'+esc(m.color)+'"></i></div><span class="cnt">'+n+"/"+list.length+'</span></div></div>'+(m.adult?'':petBtn(m))+'</div>';
+  h+='<div class="prog"><div class="bar"><i style="width:'+pct+'%;background:'+esc(m.color)+'"></i></div><span class="cnt">'+n+"/"+list.length+'</span></div></div></div>';
   if(ui.picking===m.id){
     h+='<div class="picker"><div class="emos">'+AVATARS.map(function(e){return '<button data-a="setAva" data-m="'+m.id+'" data-v="'+e+'" class="'+(e===m.emoji?"on":"")+'">'+e+'</button>'}).join("")+'</div>'+
        '<div class="colors">'+COLORS.map(function(c){return '<button data-a="setColor" data-m="'+m.id+'" data-v="'+c+'" style="background:'+c+'" class="'+(c===m.color?"on":"")+'"></button>'}).join("")+'</div>'+
@@ -712,7 +712,8 @@ function petSvg(stage,cid){
 function petOf(cid){var p=pets[cid]||{};return {petName:p.petName||"",totalXp:+p.totalXp||0,highestUnlockedStage:+p.highestUnlockedStage||0,createdAt:p.createdAt}}
 function petBtn(m){
   var p=petOf(m.id),st=shownStage(p);
-  return '<button class="pet'+(ui.evolve===m.id?" evolve":"")+'" data-a="petOpen" data-m="'+esc(m.id)+'" aria-label="'+esc(p.petName||kindOf(m.id).name)+' '+stName(m.id,st)+' 보기">'+
+  // 아이 카드의 아바타 자리. 편집 중엔 예전 아바타처럼 색 고르기(pick)
+  return '<button class="pet'+(ui.evolve===m.id?" evolve":"")+'" style="background:'+soft(m.color)+'" data-a="'+(ui.edit?"pick":"petOpen")+'" data-m="'+esc(m.id)+'" aria-label="'+(ui.edit?"색 바꾸기":esc(p.petName||kindOf(m.id).name)+' '+stName(m.id,st)+' 보기')+'">'+
     '<span class="psp">'+petSvg(st,m.id)+'</span><span class="pxp"><i style="width:'+stagePct(p)+'%"></i></span></button>';
 }
 function petCheer(cid){
