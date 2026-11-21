@@ -225,6 +225,7 @@ body.pm .dayh .tag{color:#FCFCFC}
 /* modal */
 .modalBg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:grid;place-items:center;padding:20px}
 .modal{padding:20px;width:min(580px,100%);display:flex;flex-direction:column;gap:16px;max-height:100%;overflow:auto}
+.modal .yt{width:100%;aspect-ratio:16/9;border:0}
 .modal h3{margin:0;font-weight:700;font-size:24px;color:var(--hl)}
 .fl{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px}
 .fl::before{content:"▶ "}
@@ -413,7 +414,7 @@ function render(){
     '<div class="top"><div class="slots">'+
       '<button class="slot am'+(slot==="am"?" on":"")+'" data-a="slot" data-v="am">☀️ 아침</button>'+
       '<button class="slot pm'+(slot==="pm"?" on":"")+'" data-a="slot" data-v="pm">🌙 저녁</button></div>'+
-      '<div class="tools"><span class="sync" id="sync">'+esc(syncMsg)+'</span><a class="tool" href="https://eng-word-memorizer.web.app/" target="_blank" rel="noopener">🔤 단어 외우기</a><a class="tool" href="https://www.gojls.com/login" target="_blank" rel="noopener">🏫 정상 어학원</a><button class="tool" data-a="theme">'+(THEME==="light"?"🌙 다크":"☀️ 일반")+'</button><button class="tool" data-a="calOpen">📅 달력</button>'+(ui.edit?'<button class="tool" data-a="logout">로그아웃</button>':'')+'<button class="tool'+(ui.edit?" on":"")+'" data-a="edit">'+(ui.edit?"완료":"✏️ 편집")+'</button></div></div>';
+      '<div class="tools"><span class="sync" id="sync">'+esc(syncMsg)+'</span><a class="tool" href="https://eng-word-memorizer.web.app/" target="_blank" rel="noopener">🔤 단어 외우기</a><a class="tool" href="https://www.gojls.com/login" target="_blank" rel="noopener">🏫 정상 어학원</a><button class="tool" data-a="theme">'+(THEME==="light"?"🌙 다크":"☀️ 일반")+'</button><button class="tool" data-a="calOpen">📅 달력</button><button class="tool" data-a="play">🎬 Playtime</button>'+(ui.edit?'<button class="tool" data-a="logout">로그아웃</button>':'')+'<button class="tool'+(ui.edit?" on":"")+'" data-a="edit">'+(ui.edit?"완료":"✏️ 편집")+'</button></div></div>';
   var ks=kids(),as=adults();
   h+='<div class="board" style="grid-template-columns:repeat('+Math.max(ks.length,1)+',1fr)'+(as.length?' 96px':'')+'">';
   ks.forEach(function(m){h+=renderCol(m,slot,tk)});
@@ -835,6 +836,9 @@ root.addEventListener("click",function(e){
   if(a==="memoLike"){var mo=memos.find(function(x){return x.id===id});if(!mo)return;mo.likes=(mo.likes||0)+1;render();var r2=el.getBoundingClientRect();burst(r2.left+r2.width/2,r2.top,false);if(db)db.collection("memos").doc(id).update({likes:mo.likes}).catch(function(){});return}
   if(a==="evNewDay"){openEv(v);return}
   if(a==="calOpen"){openCal(todayKey());return}
+  if(a==="play"){modal.innerHTML='<div class="modalBg" data-a="evClose"><div class="modal"><h3>▶ Playtime</h3>'+
+    '<iframe class="yt" src="https://www.youtube.com/embed/loINl3Ln6Ck?si=Mp7eoWQO2d3YsDE5" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>'+
+    '<div class="row"><button class="btn" data-a="evClose">닫기</button></div></div></div>';return}
   if(a==="calSel"){ui.cal.sel=v;ui.evSel=null;var p=v.split("-");if(+p[1]-1!==ui.cal.m){ui.cal.y=+p[0];ui.cal.m=+p[1]-1}render();return}
   if(a==="calPrev"){shiftMonth(-1);return}
   if(a==="calNext"){shiftMonth(1);return}
