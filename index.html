@@ -123,6 +123,17 @@ body.pm .dayh .tag{color:#FCFCFC}
 .tools{margin-left:auto;display:flex;gap:10px;align-items:center}
 .tool{padding:10px 12px;font-size:14px;white-space:nowrap;text-decoration:none}
 .tool.on{background:var(--yel)}
+.tools,.top{flex-wrap:wrap}
+.tools{justify-content:flex-end}
+.tools .tool{min-height:48px;display:inline-flex;align-items:center}
+.tool:focus-visible,.ddi:focus-visible{outline:4px solid var(--hl);outline-offset:2px}
+.dd{position:relative}
+.ddm{position:absolute;right:0;top:calc(100% + 8px);z-index:25;min-width:220px;max-width:calc(100vw - 32px);display:flex;flex-direction:column;gap:6px;padding:6px;background:var(--btn);border:3px solid var(--ink);box-shadow:0 0 0 2px var(--ring2),6px 6px 0 var(--ink)}
+.ddi{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:10px 12px;font:inherit;font-size:15px;font-weight:700;color:var(--ink);background:var(--btn);border:3px solid var(--ink);text-decoration:none;text-align:left;cursor:pointer}
+.ddi:active,.ddi.on{background:var(--yel)}
+.ddi b{font-size:13px}
+.calbar{padding:10px 10px 0}
+.calbar .tool{width:100%;min-height:44px;font-size:15px}
 .sync{font-size:12px;max-width:60px;line-height:1.3;color:#BCBCBC;font-weight:700}
 .board{flex:1;min-height:0;display:grid;gap:18px}
 .col{display:flex;flex-direction:column;min-height:0;overflow:hidden;position:relative}
@@ -370,7 +381,7 @@ var pets={};
 var xpPend={};            // "date|taskId" -> bool  (아이 루틴: 트랜잭션 저장 전 화면 상태)               // childId -> {petName,totalXp,highestUnlockedStage,...}
 var THEME=(function(){try{return localStorage.getItem("famdash_theme")||"light"}catch(e){return "light"}})();
 var memoSeen=(function(){try{return +localStorage.getItem("famdash_memoSeen")||0}catch(e){return 0}})();
-var ui={pet:null,evolve:null,side:"sched",memo:null,memoSel:null,slot:null,edit:false,open:false,adding:null,addEmoji:"✅",addText:"",naming:null,picking:null,evSel:null,ev:null};
+var ui={menu:null,pet:null,evolve:null,side:"sched",memo:null,memoSel:null,slot:null,edit:false,open:false,adding:null,addEmoji:"✅",addText:"",naming:null,picking:null,evSel:null,ev:null};
 var syncMsg="";
 
 /* ---------- utils ---------- */
@@ -414,7 +425,12 @@ function render(){
     '<div class="top"><div class="slots">'+
       '<button class="slot am'+(slot==="am"?" on":"")+'" data-a="slot" data-v="am">☀️ 아침</button>'+
       '<button class="slot pm'+(slot==="pm"?" on":"")+'" data-a="slot" data-v="pm">🌙 저녁</button></div>'+
-      '<div class="tools"><span class="sync" id="sync">'+esc(syncMsg)+'</span><a class="tool" href="https://eng-word-memorizer.web.app/" target="_blank" rel="noopener">🔤 단어 외우기</a><a class="tool" href="https://www.gojls.com/login" target="_blank" rel="noopener">🏫 정상 어학원</a><button class="tool" data-a="theme">'+(THEME==="light"?"🌙 다크":"☀️ 일반")+'</button><button class="tool" data-a="calOpen">📅 달력</button><button class="tool" data-a="play">🎬 Playtime</button>'+(ui.edit?'<button class="tool" data-a="logout">로그아웃</button>':'')+'<button class="tool'+(ui.edit?" on":"")+'" data-a="edit">'+(ui.edit?"완료":"✏️ 편집")+'</button></div></div>';
+      '<div class="tools"><span class="sync" id="sync">'+esc(syncMsg)+'</span><a class="tool" href="https://eng-word-memorizer.web.app/" target="_blank" rel="noopener">🔤 단어 외우기</a><button class="tool" data-a="play">🎬 Playtime</button>'+
+      dropMenu("more","☰ 더보기 ▾",MORE_LINKS.map(function(l){return '<a class="ddi" role="menuitem" data-a="menuLink" href="'+l[1]+'" target="_blank" rel="noopener">'+l[0]+'</a>'}).join(""))+
+      dropMenu("set",ui.edit?"⚙ 설정 · ✏️편집 중":"⚙ 설정",
+        '<button class="ddi" role="menuitem" data-a="theme">🌙 화면 테마 <b>'+(THEME==="light"?"일반":"다크")+'</b></button>'+
+        '<button class="ddi'+(ui.edit?" on":"")+'" role="menuitemcheckbox" aria-checked="'+ui.edit+'" data-a="edit">✏️ 편집 모드 <b>'+(ui.edit?"켜짐":"꺼짐")+'</b></button>'+
+        (ui.edit?'<button class="ddi" role="menuitem" data-a="logout">🚪 로그아웃</button>':''),ui.edit)+'</div></div>';
   var ks=kids(),as=adults();
   h+='<div class="board" style="grid-template-columns:repeat('+Math.max(ks.length,1)+',1fr)'+(as.length?' 96px':'')+'">';
   ks.forEach(function(m){h+=renderCol(m,slot,tk)});
@@ -435,6 +451,15 @@ function render(){
   if(keep){var el=root.querySelector('[data-in="'+keep.k+'"]'+(keep.m?'[data-m="'+keep.m+'"]':''));if(el){el.value=keep.v;el.focus();try{el.setSelectionRange(keep.s,keep.e)}catch(e){}}}
   else{var f=root.querySelector("[data-focus]");if(f&&document.activeElement!==f){f.focus()}}
 }
+// 더보기 메뉴 항목: [표시 이름, URL] — 추가하려면 한 줄 더 넣기
+var MORE_LINKS=[["🏫 정상 어학원","https://www.gojls.com/login"]];
+function dropMenu(id,label,items,hot){
+  var o=ui.menu===id;
+  return '<div class="dd"><button class="tool'+(o||hot?" on":"")+'" data-a="menu" data-v="'+id+'" aria-haspopup="menu" aria-expanded="'+o+'">'+label+'</button>'+
+    (o?'<div class="ddm" role="menu">'+items+'</div>':'')+'</div>';
+}
+function focusSel(sel){var f=root.querySelector(sel);if(f)f.focus()}
+function closeMenu(){var v=ui.menu;ui.menu=null;render();focusSel('[data-a="menu"][data-v="'+v+'"]')}
 function renderSide(tk){
   var h='<aside class="side"><div class="clockbox" id="clockbox" data-a="clockMode" role="button" tabindex="0" aria-label="'+clockAria()+'">'+clockInner()+'</div>';
   h+='<div class="wx">'+wxCard("오늘",tk)+wxCard("내일",addDays(tk,1))+'</div>';
@@ -442,7 +467,7 @@ function renderSide(tk){
   h+='<section class="sched"><div class="sh tabs"><button class="stab'+(ui.side==="sched"?" on":"")+'" data-a="sideTab" data-v="sched">일정</button>'+
      '<button class="stab'+(ui.side==="memo"?" on":"")+'" data-a="sideTab" data-v="memo">메모'+(unread&&ui.side!=="memo"?'<b class="badge">'+unread+'</b>':'')+'</button>'+
      '<button class="plus" data-a="'+(ui.side==="memo"?"memoNew":"evNew")+'">＋ '+(ui.side==="memo"?"메모":"일정")+'</button></div>'+
-     (ui.side==="memo"?'<div class="memos">'+renderMemos()+'</div>':'<div class="evs">'+renderEvents(tk)+'</div>')+'</section></aside>';
+     (ui.side==="memo"?'<div class="memos">'+renderMemos()+'</div>':'<div class="calbar"><button class="tool" data-a="calOpen">📅 달력 보기</button></div><div class="evs">'+renderEvents(tk)+'</div>')+'</section></aside>';
   return h;
 }
 function wxCard(label,k){
@@ -494,7 +519,9 @@ function renderCol(m,slot,tk){
   h+=renderWeek(m,tk)+'<div class="cards">';
   if(!ui.edit&&list.length&&n===list.length)h+='<div class="allDone">★ '+(slot==="am"?"아침":"저녁")+' 스테이지 클리어! ★</div>';
   if(!list.length&&!ui.edit)h+='<div class="empty">할 일이 없어요<br>편집에서 추가해 보세요</div>';
-  list.forEach(function(t,ix){
+  // 완료한 할 일은 아래로(화면 표시만, 저장 순서는 그대로). 편집 중엔 ▲▼ 순서 그대로 보여 줌
+  var shown=ui.edit?list:list.filter(function(t){return !isDone(tk,t.id)}).concat(list.filter(function(t){return isDone(tk,t.id)}));
+  shown.forEach(function(t,ix){
     var d=isDone(tk,t.id);
     h+='<div class="card'+(d&&!ui.edit?" done":"")+'" '+(ui.edit?'':'data-a="toggle" data-id="'+t.id+'" role="button"')+'><span class="ic">'+esc(t.i)+'</span><span class="tx">'+esc(t.t)+'</span>';
     if(ui.edit)h+='<span class="mv"><button data-a="up" data-id="'+t.id+'"'+(ix===0?' style="opacity:.3"':'')+'>▲</button><button data-a="down" data-id="'+t.id+'"'+(ix===list.length-1?' style="opacity:.3"':'')+'>▼</button></span><button class="del" data-a="del" data-id="'+t.id+'">✕</button>';
@@ -815,19 +842,24 @@ function move(id,dir){
 }
 root.addEventListener("click",function(e){
   touchIdle();
+  // 메뉴가 열린 상태에서 바깥을 누르면 닫기만 함(뒤에 있는 버튼이 실수로 눌리지 않게)
+  if(ui.menu&&!e.target.closest(".dd")){e.preventDefault();closeMenu();return}
   var el=e.target.closest("[data-a]");if(!el)return;
   var a=el.dataset.a,id=el.dataset.id,mid=el.dataset.m,v=el.dataset.v;
+  if(a==="menu"){ui.menu=ui.menu===v?null:v;render();focusSel(ui.menu?".ddm .ddi":'[data-a="menu"][data-v="'+v+'"]');return}
+  // 링크는 기본 동작(새 탭)이 끝난 뒤에 메뉴를 닫음 — 즉시 render하면 a가 DOM에서 빠져 이동이 취소됨
+  if(a==="menuLink"){setTimeout(closeMenu,0);return}
   if(a==="login"){doLogin();return}
   if(a==="clockMode"){clockMode=clockMode==="analog"?"digital":"analog";clockSel=null;try{localStorage.setItem("famdash_clock",clockMode)}catch(err){}paintClock(true,true);return}
   if(a==="clockHand"){clockSel=clockSel===v?null:v;paintClock(true);var g=root.querySelector('.ana [data-v="'+v+'"]');if(g)g.focus();return}
   if(a==="logout"){doLogout();return}
   if(a!=="evTap"&&a!=="evDel"&&ui.evSel){ui.evSel=null}
   if(a==="slot"){ui.slot=v;ui.adding=null;render();return}
-  if(a==="edit"){ui.edit=!ui.edit;ui.adding=null;ui.naming=null;ui.picking=null;render();return}
+  if(a==="edit"){ui.edit=!ui.edit;ui.adding=null;ui.naming=null;ui.picking=null;render();focusSel('.ddm [data-a="edit"]');return}
   if(a==="openAdults"){ui.open=true;render();touchIdle();return}
   if(a==="closeAdults"){ui.open=false;ui.adding=null;ui.picking=null;ui.naming=null;render();return}
   if(a==="evNew"){openEv();return}
-  if(a==="theme"){THEME=THEME==="light"?"dark":"light";try{localStorage.setItem("famdash_theme",THEME)}catch(err){}render();return}
+  if(a==="theme"){THEME=THEME==="light"?"dark":"light";try{localStorage.setItem("famdash_theme",THEME)}catch(err){}render();focusSel('.ddm [data-a="theme"]');return}
   if(a==="sideTab"){if(v==="memo"&&ui.side!=="memo"){ui.seenAtOpen=memoSeen;markSeen()}ui.side=v;render();return}
   if(a==="memoNew"){ui.memo={from:null,to:[],text:""};renderModal();setTimeout(function(){var t=modal.querySelector("#mT");if(t)t.focus()},50);return}
   if(a==="memoEdit"){var me=memos.find(function(x){return x.id===id});if(!me)return;ui.memo={id:id,from:me.from,to:(me.to||[]).slice(),text:me.text};renderModal();return}
@@ -894,6 +926,7 @@ root.addEventListener("keydown",function(e){
   if(k==="addText"){e.preventDefault();commitAdd(ui.adding)}
   if(k==="name"){e.preventDefault();finishName(e.target)}
 });
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&ui.menu){e.preventDefault();closeMenu()}});
 root.addEventListener("focusout",function(e){if(e.target.dataset&&e.target.dataset.in==="name"){var t=e.target;setTimeout(function(){if(ui.naming&&!t.isConnected===false)finishName(t)},0)}});
 
 /* ---------- data ---------- */
