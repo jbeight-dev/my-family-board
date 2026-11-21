@@ -236,7 +236,12 @@ body.pm .dayh .tag{color:#FCFCFC}
 /* modal */
 .modalBg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:grid;place-items:center;padding:20px}
 .modal{padding:20px;width:min(580px,100%);display:flex;flex-direction:column;gap:16px;max-height:100%;overflow:auto}
-.modal .yt{width:100%;aspect-ratio:16/9;border:0}
+.modal .yt{width:100%;aspect-ratio:16/9;border:0;min-width:0}
+.modal.playm{width:min(960px,100%)}
+.pl{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start}
+.pll{display:flex;flex-direction:column;gap:8px}
+.pll .chipb{min-height:48px;padding:10px 14px;font-size:16px;white-space:nowrap}
+@media (max-width:640px){.pl{grid-template-columns:1fr}.pll{flex-direction:row;flex-wrap:wrap}}
 .modal h3{margin:0;font-weight:700;font-size:24px;color:var(--hl)}
 .fl{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px}
 .fl::before{content:"▶ "}
@@ -458,6 +463,14 @@ function dropMenu(id,label,items,hot){
   return '<div class="dd"><button class="tool'+(o||hot?" on":"")+'" data-a="menu" data-v="'+id+'" aria-haspopup="menu" aria-expanded="'+o+'">'+label+'</button>'+
     (o?'<div class="ddm" role="menu">'+items+'</div>':'')+'</div>';
 }
+// Playtime 영상 목록: [버튼 이름, 유튜브 embed 경로] — 추가하려면 한 줄 더 넣기
+var PLAY_LIST=[["📅 Days","loINl3Ln6Ck?si=Mp7eoWQO2d3YsDE5"],["🔢 Number","4oNk81e-C6k?si=Namvn_dR1nP81fw0"]];
+function renderPlay(i){
+  modal.innerHTML='<div class="modalBg" data-a="evClose"><div class="modal playm"><h3>▶ Playtime</h3><div class="pl"><div class="pll">'+
+    PLAY_LIST.map(function(p,j){return '<button class="chipb'+(j===i?" on":"")+'" data-a="playSel" data-v="'+j+'" aria-pressed="'+(j===i)+'">'+p[0]+'</button>'}).join("")+'</div>'+
+    '<iframe class="yt" src="https://www.youtube.com/embed/'+PLAY_LIST[i][1]+'" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>'+
+    '<div class="row"><button class="btn" data-a="evClose">닫기</button></div></div></div>';
+}
 function focusSel(sel){var f=root.querySelector(sel);if(f)f.focus()}
 function closeMenu(){var v=ui.menu;ui.menu=null;render();focusSel('[data-a="menu"][data-v="'+v+'"]')}
 function renderSide(tk){
@@ -644,6 +657,7 @@ modal.addEventListener("click",function(e){
   if(!el){return}
   var a=el.dataset.a,v=el.dataset.v;
   if(a==="evClose"){if(el.classList.contains("modalBg")&&e.target!==el)return;ui.ev=null;ui.memo=null;ui.pet=null;renderModal();return}
+  if(a==="playSel"){renderPlay(+v);var b=modal.querySelector('[data-a="playSel"][data-v="'+v+'"]');if(b)b.focus();return}
   if(ui.pet){
     if(a==="petFeed"){petFeed();return}
     if(a==="petSave"){
@@ -868,9 +882,7 @@ root.addEventListener("click",function(e){
   if(a==="memoLike"){var mo=memos.find(function(x){return x.id===id});if(!mo)return;mo.likes=(mo.likes||0)+1;render();var r2=el.getBoundingClientRect();burst(r2.left+r2.width/2,r2.top,false);if(db)db.collection("memos").doc(id).update({likes:mo.likes}).catch(function(){});return}
   if(a==="evNewDay"){openEv(v);return}
   if(a==="calOpen"){openCal(todayKey());return}
-  if(a==="play"){modal.innerHTML='<div class="modalBg" data-a="evClose"><div class="modal"><h3>▶ Playtime</h3>'+
-    '<iframe class="yt" src="https://www.youtube.com/embed/loINl3Ln6Ck?si=Mp7eoWQO2d3YsDE5" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>'+
-    '<div class="row"><button class="btn" data-a="evClose">닫기</button></div></div></div>';return}
+  if(a==="play"){renderPlay(0);return}
   if(a==="calSel"){ui.cal.sel=v;ui.evSel=null;var p=v.split("-");if(+p[1]-1!==ui.cal.m){ui.cal.y=+p[0];ui.cal.m=+p[1]-1}render();return}
   if(a==="calPrev"){shiftMonth(-1);return}
   if(a==="calNext"){shiftMonth(1);return}
