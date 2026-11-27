@@ -390,6 +390,7 @@ var memos=[];
 var pets={};
 var xpPend={};            // "date|taskId" -> bool  (아이 루틴: 트랜잭션 저장 전 화면 상태)               // childId -> {petName,totalXp,highestUnlockedStage,...}
 var THEME=(function(){try{return localStorage.getItem("famdash_theme")||"light"}catch(e){return "light"}})();
+var memoIds=null;
 var memoSeen=(function(){try{return +localStorage.getItem("famdash_memoSeen")||0}catch(e){return 0}})();
 var ui={menu:null,pet:null,evolve:null,side:"sched",memo:null,memoSel:null,slot:null,edit:false,open:false,adding:null,addEmoji:"✅",addText:"",naming:null,picking:null,evSel:null,ev:null};
 var syncMsg="";
@@ -694,7 +695,7 @@ modal.addEventListener("click",function(e){
         toast("메모를 고쳤어요");return;
       }
       var mid=uid("m"),md={from:mm.from,to:mm.to.slice(),text:tx,at:Date.now(),likes:0};
-      memos.push(Object.assign({id:mid},md));ui.memo=null;markSeen();ui.seenAtOpen=memoSeen;renderModal();render();
+      memos.push(Object.assign({id:mid},md));if(memoIds)memoIds[mid]=1;ui.memo=null;markSeen();ui.seenAtOpen=memoSeen;renderModal();render();
       if(db)db.collection("memos").doc(mid).set(md).catch(writeFail);
       toast("메모를 남겼어요");return;
     }
@@ -987,6 +988,10 @@ function start(){
   },function(){});
   db.collection("memos").onSnapshot(function(s){
     memos=s.docs.map(function(d){var x=d.data()||{};return {id:d.id,from:String(x.from||""),to:Array.isArray(x.to)?x.to:[],text:String(x.text||""),at:+x.at||0,likes:+x.likes||0}});
+    // 첫 로드 뒤에 새로 생긴 메모면 알림 (내가 쓴 건 이미 memoIds에 있음)
+    var fresh=memoIds?memos.filter(function(m){return !memoIds[m.id]}):[];
+    memoIds={};memos.forEach(function(m){memoIds[m.id]=1});
+    if(fresh.length){var fm=memberById(fresh[0].from);toast("💌 "+(fm?fm.name+"의 ":"")+"새 메모가 왔어요")}
     if(ui.side==="memo"){markSeen()}
     render();
   },function(){});
